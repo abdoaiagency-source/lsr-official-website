@@ -21,7 +21,7 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font-family: "Cairo", "Tajawal", "Segoe UI", Tahoma, Arial, sans-serif;
+  font-family: var(--font-ibm-arabic), "IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
   text-rendering: geometricPrecision;
 }
 a { color: inherit; text-decoration: none; }
