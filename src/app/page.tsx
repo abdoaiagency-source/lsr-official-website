@@ -1,12 +1,37 @@
-import { contact, reasons, sectors, services, workflow } from "@/lib/content";
+import { contact, intakeChecklist, sectors, services, trustPrinciples, workflow } from "@/lib/content";
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <p className="section-label">{children}</p>;
 }
 
-const proofItems = ["ملفات منظمة", "متابعة قانونية", "قطاعات تشغيل فعلية"];
+function SectionHeader({
+  label,
+  title,
+  text,
+  light = false,
+}: {
+  label: string;
+  title: string;
+  text?: string;
+  light?: boolean;
+}) {
+  return (
+    <div className={`section-head${light ? " light" : ""}`}>
+      <div>
+        <SectionLabel>{label}</SectionLabel>
+        <h2>{title}</h2>
+      </div>
+      {text ? <p>{text}</p> : null}
+    </div>
+  );
+}
+
+const heroProof = ["ملف عمالي واضح", "متابعة محافظة قانونياً", "جاهزية للتشغيل"];
 
 export default function Home() {
+  const featuredService = services[0];
+  const supportingServices = services.slice(1);
+
   return (
     <main>
       <section className="hero" id="top">
@@ -31,39 +56,30 @@ export default function Home() {
             <SectionLabel>شركة ليبية متخصصة في شؤون العمالة الوافدة</SectionLabel>
             <h1>إدارة نظامية للعمالة الوافدة، من الاحتياج حتى استقرار التشغيل.</h1>
             <p className="lead">
-              الإقامة الآمنة تساعد الشركات والمؤسسات في ليبيا على تنظيم الاستقدام، الإقامات، العقود، المتابعة، والدعم اللوجستي بمنهجية واضحة وسرية مهنية والتزام بالإجراءات المعتمدة.
+              الإقامة الآمنة تنظم ملفات الاستقدام، الإقامات، العقود، والمتابعة التشغيلية للشركات في ليبيا بمنهجية واضحة، تواصل محافظ، والتزام بالإجراءات المعتمدة.
             </p>
             <div className="hero-actions">
               <a className="btn primary" href={`mailto:${contact.email}`}>ابدأ بمراجعة احتياجك</a>
-              <a className="btn secondary" href="#services">استعرض نطاق الخدمات</a>
+              <a className="btn secondary" href="#process">افهم آلية العمل</a>
             </div>
             <div className="hero-proof" aria-label="مؤشرات الثقة">
-              {proofItems.map((item) => <span key={item}>{item}</span>)}
+              {heroProof.map((item) => <span key={item}>{item}</span>)}
             </div>
           </div>
 
           <aside className="hero-panel" aria-label="ملخص منهجية الإقامة الآمنة">
             <div className="panel-topline">
-              <span>ملف عمالي منظم</span>
+              <span>نموذج متابعة</span>
               <strong>LSR</strong>
             </div>
-            <h2>منهجية تشغيل تحفظ الوقت وتقلل المخاطر.</h2>
-            <div className="panel-metrics" aria-label="مؤشرات الخدمة">
-              <div>
-                <strong>01</strong>
-                <span>دراسة الاحتياج</span>
-              </div>
-              <div>
-                <strong>02</strong>
-                <span>مطابقة الكوادر</span>
-              </div>
-              <div>
-                <strong>03</strong>
-                <span>متابعة الإجراء</span>
-              </div>
+            <h2>كل ملف يبدأ بتحديد واضح للاحتياج، المتطلبات، والمسؤوليات.</h2>
+            <div className="panel-ledger" aria-label="مكونات الملف العمالي">
+              <div><span>الجهة الطالبة</span><strong>شركة / مؤسسة</strong></div>
+              <div><span>نطاق الملف</span><strong>إقامة، عقد، تشغيل</strong></div>
+              <div><span>طريقة المتابعة</span><strong>حالة ونواقص وخطوة تالية</strong></div>
             </div>
             <ol className="panel-steps">
-              {workflow.slice(0, 4).map((item) => <li key={item}>{item}</li>)}
+              {workflow.slice(0, 3).map((item) => <li key={item.title}>{item.title}</li>)}
             </ol>
           </aside>
         </div>
@@ -74,72 +90,120 @@ export default function Home() {
           <SectionLabel>من نحن؟</SectionLabel>
           <h2>شريك تشغيلي للملف العمالي، لا مجرد وسيط إجراءات.</h2>
         </div>
-        <p>
-          نحن شركة ليبية متخصصة في تقديم حلول متكاملة لإدارة شؤون العمالة الأجنبية الماهرة، مع التركيز على التنظيم القانوني الكامل، حماية مصالح أصحاب الأعمال، والمساهمة في استقرار سوق العمل الليبي. في الإقامة الآمنة، لا نقدّم خدمة فقط؛ بل نتابع الملف العمالي باحترافية وسرية والتزام تام بالقانون.
-        </p>
+        <div className="intro-copy">
+          <p>
+            نحن شركة ليبية متخصصة في تقديم حلول متكاملة لإدارة شؤون العمالة الأجنبية الماهرة، مع التركيز على التنظيم القانوني الكامل، حماية مصالح أصحاب الأعمال، والمساهمة في استقرار سوق العمل الليبي.
+          </p>
+          <p>
+            في الإقامة الآمنة، لا نقدّم خدمة منفصلة عن الواقع التشغيلي؛ بل نتابع الملف العمالي كمسار له متطلبات، نواقص، تواصل، ومسؤوليات واضحة.
+          </p>
+        </div>
       </section>
 
       <section className="section services-section" id="services">
-        <SectionLabel>خدماتنا</SectionLabel>
-        <div className="section-head">
-          <h2>نطاق خدمات واضح للشركات التي تحتاج عمالة مستقرة ومنظمة.</h2>
-          <p>خدمات مأخوذة من ملف الشركة الرسمي، مصاغة للويب بدون مبالغة أو وعود قانونية غير مؤكدة.</p>
-        </div>
-        <div className="services-grid">
-          {services.map((service, index) => (
-            <article className="service-card" key={service.title}>
-              <span className="card-number">{String(index + 1).padStart(2, "0")}</span>
-              <h3>{service.title}</h3>
-              <p>{service.text}</p>
-            </article>
-          ))}
+        <SectionHeader
+          label="نطاق الخدمات"
+          title="خدمات عمالية منظمة للشركات التي تحتاج وضوحاً قبل السرعة."
+          text="نعرض نطاق العمل بلغة مباشرة: ماذا نرتب، ماذا نتابع، وما الخطر التشغيلي الذي نقلله دون مبالغة أو وعود غير مؤكدة."
+        />
+        <div className="service-composition">
+          <article className="service-featured">
+            <span className="card-number">01</span>
+            <h3>{featuredService.title}</h3>
+            <p>{featuredService.text}</p>
+            <div className="scope-list" aria-label="نطاق الخدمة">
+              {featuredService.scope.map((item) => <span key={item}>{item}</span>)}
+            </div>
+            <div className="risk-note">
+              <small>تقليل المخاطر</small>
+              <strong>{featuredService.riskReduced}</strong>
+            </div>
+          </article>
+
+          <div className="services-list">
+            {supportingServices.map((service, index) => (
+              <article className="service-row" key={service.title}>
+                <span className="service-index">{String(index + 2).padStart(2, "0")}</span>
+                <div>
+                  <h3>{service.title}</h3>
+                  <p>{service.text}</p>
+                  <div className="mini-scope">
+                    {service.scope.map((item) => <span key={item}>{item}</span>)}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
       <section className="process section" id="process">
         <div className="process-copy">
           <SectionLabel>آلية العمل</SectionLabel>
-          <h2>مسار مختصر، قابل للمتابعة، ومبني على وضوح المسؤوليات.</h2>
-          <p>نبدأ بفهم احتياج الجهة الطالبة، ثم نرتب المتطلبات والكوادر والإجراءات حتى يصبح الملف قابلاً للإدارة والمتابعة.</p>
+          <h2>مسار قابل للمتابعة بدل انتظار مفتوح.</h2>
+          <p>نحوّل الطلب من فكرة عامة إلى ملف واضح: احتياج، مستندات، كوادر، إجراء، ثم متابعة تشغيلية.</p>
+          <div className="process-note">
+            <strong>ما الذي نثبته في كل مرحلة؟</strong>
+            <span>الحالة الحالية، النواقص، الطرف المسؤول، والخطوة التالية.</span>
+          </div>
         </div>
-        <div className="process-list">
+        <div className="timeline">
           {workflow.map((item, index) => (
-            <article className="process-step" key={item}>
+            <article className="timeline-step" key={item.title}>
               <span>{String(index + 1).padStart(2, "0")}</span>
-              <p>{item}</p>
+              <div>
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+              </div>
             </article>
           ))}
         </div>
       </section>
 
       <section className="section sectors" id="sectors">
-        <div className="section-head light">
-          <SectionLabel>القطاعات التي نخدمها</SectionLabel>
-          <h2>كوادر متخصصة لقطاعات تشغيل حقيقية.</h2>
-          <p>نخدم قطاعات تحتاج انتظاماً في العمالة، وضوحاً في المتابعة، وخفضاً للمخاطر التشغيلية.</p>
-        </div>
-        <div className="sector-grid">
-          {sectors.map((sector) => <div className="sector-pill" key={sector}>{sector}</div>)}
+        <SectionHeader
+          light
+          label="القطاعات التي نخدمها"
+          title="قطاعات تحتاج انتظاماً في العمالة، لا حلولاً عشوائية."
+          text="تختلف حساسية الملف حسب القطاع؛ لذلك نبدأ دائماً بفهم طبيعة التشغيل والموقع والمهارة المطلوبة."
+        />
+        <div className="sector-matrix">
+          {sectors.map((sector, index) => (
+            <div className="sector-cell" key={sector}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <strong>{sector}</strong>
+            </div>
+          ))}
         </div>
       </section>
 
-      <section className="section why">
-        <div className="section-head">
-          <SectionLabel>لماذا الإقامة الآمنة؟</SectionLabel>
-          <h2>قرار أفضل عندما يكون الملف واضحاً من اليوم الأول.</h2>
-        </div>
-        <div className="why-grid">
-          {reasons.map((reason) => <div className="reason" key={reason}>{reason}</div>)}
+      <section className="section trust">
+        <SectionHeader
+          label="لماذا الإقامة الآمنة؟"
+          title="الثقة هنا ليست شعاراً؛ هي طريقة إدارة للملف."
+          text="الملفات العمالية الحساسة تحتاج هدوءاً، توثيقاً، وتواصلاً واضحاً أكثر من حاجتها لعبارات تسويقية كبيرة."
+        />
+        <div className="trust-grid">
+          {trustPrinciples.map((principle) => (
+            <article className="trust-card" key={principle.title}>
+              <h3>{principle.title}</h3>
+              <p>{principle.text}</p>
+            </article>
+          ))}
         </div>
       </section>
 
       <section className="contact section" id="contact">
-        <div>
+        <div className="contact-copy">
           <SectionLabel>تواصل معنا</SectionLabel>
-          <h2>ابدأ بتنظيم احتياجك العمالي مع فريق الإقامة الآمنة.</h2>
-          <p>أرسل تفاصيل القطاع، عدد العمالة، والوظائف المطلوبة. سنراجع الطلب ونوضح الخطوة المناسبة دون وعود غير مؤكدة.</p>
+          <h2>ابدأ بتنظيم احتياجك العمالي بملف واضح من الرسالة الأولى.</h2>
+          <p>أرسل معلومات مختصرة عن احتياجك، وسنراجع المسار المناسب ونوضح الخطوة التالية بلغة مباشرة ومحافظة.</p>
+          <ul className="intake-list" aria-label="معلومات مفيدة قبل التواصل">
+            {intakeChecklist.map((item) => <li key={item}>{item}</li>)}
+          </ul>
         </div>
         <address className="contact-card">
+          <span className="contact-card-title">بيانات التواصل الرسمية</span>
           <a href={`mailto:${contact.email}`}>{contact.email}</a>
           <span>{contact.address}</span>
           {contact.phones.map((phone) => <a key={phone} href={`tel:${phone}`}>{phone}</a>)}
@@ -147,8 +211,11 @@ export default function Home() {
       </section>
 
       <footer>
-        <span>© 2026 شركة الإقامة الآمنة الليبية للخدمات العمالية</span>
-        <span>معنا خطوة بخطوة نحو الأمان</span>
+        <div>
+          <strong>شركة الإقامة الآمنة الليبية للخدمات العمالية</strong>
+          <span>معنا خطوة بخطوة نحو الأمان</span>
+        </div>
+        <a href={`mailto:${contact.email}`}>{contact.email}</a>
       </footer>
     </main>
   );
