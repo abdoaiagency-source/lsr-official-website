@@ -39,6 +39,8 @@ function saveLead(lead: StoredLead) {
 export default function QualificationForm() {
   const [answers, setAnswers] = useState<QualificationAnswers>(initialAnswers);
   const [lead, setLead] = useState<StoredLead | null>(null);
+  const [saveSource, setSaveSource] = useState<"server" | "local" | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const canSubmit = useMemo(() => {
     return answers.name.trim().length >= 2 && answers.phone.trim().length >= 6;
@@ -48,11 +50,41 @@ export default function QualificationForm() {
     setAnswers((current) => ({ ...current, [key]: value }));
   }
 
-  function submit(event: React.FormEvent<HTMLFormElement>) {
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const storedLead = createStoredLead(answers);
-    saveLead(storedLead);
-    setLead(storedLead);
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(answers),
+      });
+      const payload = await response.json();
+      const storedLead = (payload.lead ?? payload.fallbackLead) as StoredLead | undefined;
+
+      if (response.ok && storedLead) {
+        setLead(storedLead);
+        setSaveSource("server");
+        return;
+      }
+
+      if (storedLead) {
+        saveLead(storedLead);
+        setLead(storedLead);
+        setSaveSource("local");
+        return;
+      }
+    } catch {
+      // Fall back to deterministic local classification if the server route is unavailable.
+    } finally {
+      setIsSubmitting(false);
+    }
+
+    const fallbackLead = createStoredLead(answers);
+    saveLead(fallbackLead);
+    setLead(fallbackLead);
+    setSaveSource("local");
   }
 
   return (
@@ -151,13 +183,14 @@ export default function QualificationForm() {
           </Field>
         </div>
 
-        <button className="btn primary qual-submit" type="submit" disabled={!canSubmit}>تحديد الحالة وحفظ Lead تجريبي</button>
+        <button className="btn primary qual-submit" type="submit" disabled={!canSubmit || isSubmitting}>{isSubmitting ? "جاري الحفظ..." : "تحديد الحالة وحفظ Lead"}</button>
       </form>
 
       <aside className="qual-result" aria-live="polite">
         {lead ? (
           <>
             <span className={`status-pill status-${lead.status}`}>{lead.status}</span>
+            {saveSource ? <small className="save-source">{saveSource === "server" ? "تم الحفظ في قاعدة البيانات" : "تم الحفظ محلياً مؤقتاً"}</small> : null}
             <h2>{lead.status === "ready_deposit" ? "جاهز للدفعة" : lead.status === "needs_documents" ? "يحتاج أوراق" : "لا يمكن البدء حالياً"}</h2>
             <p>{lead.clientMessage}</p>
             {lead.missingDocuments.length > 0 ? (

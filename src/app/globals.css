@@ -302,6 +302,47 @@ footer a { direction: ltr; overflow-wrap: anywhere; }
 .lead-actions button { border: 1px solid rgba(8,32,51,.12); border-radius: 999px; background: #fff; padding: 9px 12px; font: inherit; font-weight: 900; cursor: pointer; color: var(--ink); }
 .empty-state { border-radius: 24px; padding: 28px; text-align: center; }
 .empty-state p { color: var(--muted); }
+
+.save-source { color: #b8c6d1; font-weight: 900; }
+.admin-auth-panel {
+  max-width: 1180px;
+  margin: 18px auto 0;
+  border: 1px solid rgba(8,32,51,.11);
+  border-radius: 24px;
+  background: rgba(255,250,241,.88);
+  box-shadow: 0 18px 54px rgba(8,32,51,.06);
+  padding: 18px;
+  display: grid;
+  grid-template-columns: minmax(240px, .8fr) auto 1fr;
+  gap: 14px;
+  align-items: end;
+}
+.admin-auth-panel label { display: grid; gap: 8px; }
+.admin-auth-panel label span { color: #26394c; font-weight: 900; font-size: 14px; }
+.admin-auth-panel input {
+  min-height: 46px;
+  border: 1px solid rgba(8,32,51,.13);
+  border-radius: 15px;
+  padding: 0 14px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+}
+.admin-auth-panel button {
+  min-height: 46px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 18px;
+  background: var(--ink);
+  color: white;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+.admin-auth-panel p { margin: 0; color: var(--muted); line-height: 1.7; }
+@media (max-width: 1080px) { .admin-auth-panel { grid-template-columns: 1fr; } }
+
 @media (max-width: 1080px) {
   .qual-shell, .ops-hero, .queue-head, .lead-card { grid-template-columns: 1fr; }
   .qual-result { position: static; }
