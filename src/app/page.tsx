@@ -34,6 +34,11 @@ export default function Home() {
               <a className="btn primary" href={`mailto:${contact.email}`}>تواصل معنا</a>
               <a className="btn secondary" href="#services">استعرض خدماتنا</a>
             </div>
+            <div className="hero-proof" aria-label="مؤشرات الثقة">
+              <span>تنظيم قانوني</span>
+              <span>متابعة مستمرة</span>
+              <span>قطاعات تشغيل حقيقية</span>
+            </div>
           </div>
 
           <div className="hero-visual" aria-label="بطاقات خدمات الإقامة الآمنة">
