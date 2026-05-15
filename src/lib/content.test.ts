@@ -11,6 +11,6 @@ describe("LSR source content", () => {
   it("covers the official service and sector structure", () => {
     expect(services).toHaveLength(6);
     expect(sectors).toHaveLength(7);
-    expect(workflow[0]).toContain("دراسة احتياجات");
+    expect(workflow[0].title).toContain("دراسة الاحتياج");
   });
 });

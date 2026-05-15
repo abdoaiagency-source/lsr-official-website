@@ -47,7 +47,7 @@ export default function Home() {
             <a href="#services">الخدمات</a>
             <a href="#process">المنهجية</a>
             <a href="#sectors">القطاعات</a>
-            <a className="nav-cta" href="#contact">تواصل معنا</a>
+            <a className="nav-cta" href="/qualification">ابدأ التأهيل</a>
           </div>
         </nav>
 
@@ -59,7 +59,7 @@ export default function Home() {
               الإقامة الآمنة تنظم ملفات الاستقدام، الإقامات، العقود، والمتابعة التشغيلية للشركات في ليبيا بمنهجية واضحة، تواصل محافظ، والتزام بالإجراءات المعتمدة.
             </p>
             <div className="hero-actions">
-              <a className="btn primary" href={`mailto:${contact.email}`}>ابدأ بمراجعة احتياجك</a>
+              <a className="btn primary" href="/qualification">ابدأ التأهيل السريع</a>
               <a className="btn secondary" href="#process">افهم آلية العمل</a>
             </div>
             <div className="hero-proof" aria-label="مؤشرات الثقة">
