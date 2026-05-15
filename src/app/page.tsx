@@ -4,6 +4,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return <p className="section-label">{children}</p>;
 }
 
+const proofItems = ["ملفات منظمة", "متابعة قانونية", "قطاعات تشغيل فعلية"];
+
 export default function Home() {
   return (
     <main>
@@ -18,56 +20,69 @@ export default function Home() {
           </a>
           <div className="nav-links">
             <a href="#services">الخدمات</a>
+            <a href="#process">المنهجية</a>
             <a href="#sectors">القطاعات</a>
-            <a href="#contact">تواصل معنا</a>
+            <a className="nav-cta" href="#contact">تواصل معنا</a>
           </div>
         </nav>
 
         <div className="hero-grid">
           <div className="hero-copy">
             <SectionLabel>شركة ليبية متخصصة في شؤون العمالة الوافدة</SectionLabel>
-            <h1>حلول متكاملة لإدارة شؤون العمالة الوافدة في ليبيا</h1>
+            <h1>إدارة نظامية للعمالة الوافدة، من الاحتياج حتى استقرار التشغيل.</h1>
             <p className="lead">
-              شركة الإقامة الآمنة الليبية للخدمات العمالية تساعد الشركات والمؤسسات على تنظيم ملفات العمالة الأجنبية، من الاستقدام والإقامات والعقود إلى الامتثال والمتابعة والدعم اللوجستي، باحترافية وسرية والتزام بالقانون.
+              الإقامة الآمنة تساعد الشركات والمؤسسات في ليبيا على تنظيم الاستقدام، الإقامات، العقود، المتابعة، والدعم اللوجستي بمنهجية واضحة وسرية مهنية والتزام بالإجراءات المعتمدة.
             </p>
             <div className="hero-actions">
-              <a className="btn primary" href={`mailto:${contact.email}`}>تواصل معنا</a>
-              <a className="btn secondary" href="#services">استعرض خدماتنا</a>
+              <a className="btn primary" href={`mailto:${contact.email}`}>ابدأ بمراجعة احتياجك</a>
+              <a className="btn secondary" href="#services">استعرض نطاق الخدمات</a>
             </div>
             <div className="hero-proof" aria-label="مؤشرات الثقة">
-              <span>تنظيم قانوني</span>
-              <span>متابعة مستمرة</span>
-              <span>قطاعات تشغيل حقيقية</span>
+              {proofItems.map((item) => <span key={item}>{item}</span>)}
             </div>
           </div>
 
-          <div className="hero-visual" aria-label="بطاقات خدمات الإقامة الآمنة">
-            <div className="glass-card main-card">
+          <aside className="hero-panel" aria-label="ملخص منهجية الإقامة الآمنة">
+            <div className="panel-topline">
               <span>ملف عمالي منظم</span>
-              <strong>من الاحتياج إلى الاستقرار</strong>
-              <p>دراسة، مطابقة، امتثال، ومتابعة حتى اكتمال الإجراءات.</p>
+              <strong>LSR</strong>
             </div>
-            <div className="floating-card one">الإقامات والعقود</div>
-            <div className="floating-card two">استقدام العمالة</div>
-            <div className="floating-card three">منصة وافد والامتثال</div>
-          </div>
+            <h2>منهجية تشغيل تحفظ الوقت وتقلل المخاطر.</h2>
+            <div className="panel-metrics" aria-label="مؤشرات الخدمة">
+              <div>
+                <strong>01</strong>
+                <span>دراسة الاحتياج</span>
+              </div>
+              <div>
+                <strong>02</strong>
+                <span>مطابقة الكوادر</span>
+              </div>
+              <div>
+                <strong>03</strong>
+                <span>متابعة الإجراء</span>
+              </div>
+            </div>
+            <ol className="panel-steps">
+              {workflow.slice(0, 4).map((item) => <li key={item}>{item}</li>)}
+            </ol>
+          </aside>
         </div>
       </section>
 
       <section className="intro section">
         <div>
           <SectionLabel>من نحن؟</SectionLabel>
-          <h2>نتحمل مسؤولية الملف العمالي من بدايته حتى اكتماله</h2>
+          <h2>شريك تشغيلي للملف العمالي، لا مجرد وسيط إجراءات.</h2>
         </div>
         <p>
           نحن شركة ليبية متخصصة في تقديم حلول متكاملة لإدارة شؤون العمالة الأجنبية الماهرة، مع التركيز على التنظيم القانوني الكامل، حماية مصالح أصحاب الأعمال، والمساهمة في استقرار سوق العمل الليبي. في الإقامة الآمنة، لا نقدّم خدمة فقط؛ بل نتابع الملف العمالي باحترافية وسرية والتزام تام بالقانون.
         </p>
       </section>
 
-      <section className="section" id="services">
+      <section className="section services-section" id="services">
         <SectionLabel>خدماتنا</SectionLabel>
         <div className="section-head">
-          <h2>كل ما تحتاجه الشركة لتنظيم العمالة والإقامات والمتابعة</h2>
+          <h2>نطاق خدمات واضح للشركات التي تحتاج عمالة مستقرة ومنظمة.</h2>
           <p>خدمات مأخوذة من ملف الشركة الرسمي، مصاغة للويب بدون مبالغة أو وعود قانونية غير مؤكدة.</p>
         </div>
         <div className="services-grid">
@@ -81,15 +96,18 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="workflow section">
-        <SectionLabel>آلية العمل</SectionLabel>
-        <h2>مسار واضح يحوّل الاحتياج إلى ملف قابل للمتابعة</h2>
-        <div className="workflow-line">
+      <section className="process section" id="process">
+        <div className="process-copy">
+          <SectionLabel>آلية العمل</SectionLabel>
+          <h2>مسار مختصر، قابل للمتابعة، ومبني على وضوح المسؤوليات.</h2>
+          <p>نبدأ بفهم احتياج الجهة الطالبة، ثم نرتب المتطلبات والكوادر والإجراءات حتى يصبح الملف قابلاً للإدارة والمتابعة.</p>
+        </div>
+        <div className="process-list">
           {workflow.map((item, index) => (
-            <div className="workflow-step" key={item}>
-              <span>{index + 1}</span>
+            <article className="process-step" key={item}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
               <p>{item}</p>
-            </div>
+            </article>
           ))}
         </div>
       </section>
@@ -97,8 +115,8 @@ export default function Home() {
       <section className="section sectors" id="sectors">
         <div className="section-head light">
           <SectionLabel>القطاعات التي نخدمها</SectionLabel>
-          <h2>كوادر متخصصة لقطاعات تشغيل حقيقية</h2>
-          <p>الصحة، الفنادق، التعليم، المصانع، البناء، التكنولوجيا، والزراعة.</p>
+          <h2>كوادر متخصصة لقطاعات تشغيل حقيقية.</h2>
+          <p>نخدم قطاعات تحتاج انتظاماً في العمالة، وضوحاً في المتابعة، وخفضاً للمخاطر التشغيلية.</p>
         </div>
         <div className="sector-grid">
           {sectors.map((sector) => <div className="sector-pill" key={sector}>{sector}</div>)}
@@ -108,7 +126,7 @@ export default function Home() {
       <section className="section why">
         <div className="section-head">
           <SectionLabel>لماذا الإقامة الآمنة؟</SectionLabel>
-          <h2>وضوح إجرائي، متابعة مستمرة، والتزام دون مجازفة</h2>
+          <h2>قرار أفضل عندما يكون الملف واضحاً من اليوم الأول.</h2>
         </div>
         <div className="why-grid">
           {reasons.map((reason) => <div className="reason" key={reason}>{reason}</div>)}
@@ -118,14 +136,14 @@ export default function Home() {
       <section className="contact section" id="contact">
         <div>
           <SectionLabel>تواصل معنا</SectionLabel>
-          <h2>ابدأ بتنظيم احتياجك العمالي مع فريق الإقامة الآمنة</h2>
-          <p>أرسل لنا تفاصيل القطاع والوظائف المطلوبة وسنساعدك على تحديد الخطوات المناسبة.</p>
+          <h2>ابدأ بتنظيم احتياجك العمالي مع فريق الإقامة الآمنة.</h2>
+          <p>أرسل تفاصيل القطاع، عدد العمالة، والوظائف المطلوبة. سنراجع الطلب ونوضح الخطوة المناسبة دون وعود غير مؤكدة.</p>
         </div>
-        <div className="contact-card">
+        <address className="contact-card">
           <a href={`mailto:${contact.email}`}>{contact.email}</a>
           <span>{contact.address}</span>
           {contact.phones.map((phone) => <a key={phone} href={`tel:${phone}`}>{phone}</a>)}
-        </div>
+        </address>
       </section>
 
       <footer>
