@@ -1,64 +1,84 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { createStoredLead, getDocumentLabel, type QualificationAnswers, type StoredLead } from "@/lib/conversion";
-
-const initialAnswers: QualificationAnswers = {
-  name: "",
-  phone: "",
-  city: "",
-  nationality: "",
-  hasEntryStamp: "unknown",
-  officialEntry: "unknown",
-  hasPreviousSponsor: "unknown",
-  hasSponsorClearance: "unknown",
-  canObtainSponsorClearance: "unknown",
-  passportValid: "unknown",
-  healthCertificateReady: "unknown",
-  photosReady: "unknown",
-  agreesToVisit: "yes",
-  wantsWaafedHelp: "unknown",
-};
+import { getDocumentLabel, type QualificationAnswers, type StoredLead } from "@/lib/conversion";
+import {
+  getVisibleChatSteps,
+  initialChatAnswers,
+  isStepComplete,
+  normalizeBranchingAnswers,
+  type ChatStep,
+} from "@/lib/qualification-chat";
 
 const storageKey = "lsr_conversion_leads";
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="qual-field">
-      <span>{label}</span>
-      {children}
-    </label>
-  );
-}
+const whatsappNumber = "218910000000";
 
 function saveLead(lead: StoredLead) {
   const current = JSON.parse(window.localStorage.getItem(storageKey) || "[]") as StoredLead[];
   window.localStorage.setItem(storageKey, JSON.stringify([lead, ...current].slice(0, 100)));
 }
 
+function statusTitle(status: StoredLead["status"]) {
+  if (status === "ready_deposit") return "حالتك مناسبة مبدئياً ✅";
+  if (status === "needs_documents") return "حالتك ممكنة، لكن ناقصة أوراق 📄";
+  return "لا يمكن البدء حالياً";
+}
+
+function whatsappText(lead: StoredLead) {
+  const missing = lead.missingDocuments.length
+    ? `\nالأوراق الناقصة:\n${lead.missingDocuments.map((item, index) => `${index + 1}. ${getDocumentLabel(item)}`).join("\n")}`
+    : "\nالأوراق الأساسية حسب الإجابات جاهزة مبدئياً.";
+
+  return encodeURIComponent(
+    `السلام عليكم، أكملت شات التأهيل في موقع الإقامة الآمنة.\nالاسم: ${lead.name}\nرقم التواصل: ${lead.phone}\nالحالة: ${statusTitle(lead.status)}${missing}\nالإجراء التالي: ${lead.nextAction}`,
+  );
+}
+
+function textInputMode(step: ChatStep) {
+  if (step.inputType === "tel") return "tel";
+  return "text";
+}
+
 export default function QualificationForm() {
-  const [answers, setAnswers] = useState<QualificationAnswers>(initialAnswers);
+  const [answers, setAnswers] = useState<QualificationAnswers>(initialChatAnswers);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [lead, setLead] = useState<StoredLead | null>(null);
   const [saveSource, setSaveSource] = useState<"server" | "local" | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [started, setStarted] = useState(false);
 
-  const canSubmit = useMemo(() => {
-    return answers.name.trim().length >= 2 && answers.phone.trim().length >= 6;
-  }, [answers.name, answers.phone]);
+  const visibleSteps = useMemo(() => getVisibleChatSteps(answers), [answers]);
+  const currentStep = visibleSteps[Math.min(currentIndex, visibleSteps.length - 1)];
+  const progress = Math.round(((Math.min(currentIndex, visibleSteps.length - 1) + 1) / visibleSteps.length) * 100);
+  const canContinue = currentStep ? isStepComplete(answers, currentStep) : false;
+  const isLastStep = currentIndex >= visibleSteps.length - 1;
 
   function update<K extends keyof QualificationAnswers>(key: K, value: QualificationAnswers[K]) {
-    setAnswers((current) => ({ ...current, [key]: value }));
+    setAnswers((current) => normalizeBranchingAnswers({ ...current, [key]: value }));
   }
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function next() {
+    if (!canContinue || !currentStep) return;
+    if (isLastStep) {
+      void submit();
+      return;
+    }
+    setCurrentIndex((index) => Math.min(index + 1, visibleSteps.length - 1));
+  }
+
+  function back() {
+    setCurrentIndex((index) => Math.max(index - 1, 0));
+  }
+
+  async function submit() {
     setIsSubmitting(true);
+    const finalAnswers = normalizeBranchingAnswers(answers);
 
     try {
       const response = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(answers),
+        body: JSON.stringify(finalAnswers),
       });
       const payload = await response.json();
       const storedLead = (payload.lead ?? payload.fallbackLead) as StoredLead | undefined;
@@ -76,143 +96,130 @@ export default function QualificationForm() {
         return;
       }
     } catch {
-      // Fall back to deterministic local classification if the server route is unavailable.
+      // The API has a built-in server fallback. This catch handles network/browser failures.
     } finally {
       setIsSubmitting(false);
     }
-
-    const fallbackLead = createStoredLead(answers);
-    saveLead(fallbackLead);
-    setLead(fallbackLead);
-    setSaveSource("local");
   }
 
-  return (
-    <div className="qual-shell">
-      <form className="qual-form" onSubmit={submit}>
-        <div className="qual-form-head">
-          <p className="section-label">شات التأهيل</p>
-          <h1>جاوب على الأسئلة السريعة لتحديد الخطوة التالية.</h1>
-          <p>النظام يصنف الحالة داخلياً بدون وعود في السعر أو المدة، ويرسل الحالات الجاهزة إلى أيوب أولاً.</p>
-        </div>
+  function restart() {
+    setAnswers(initialChatAnswers);
+    setCurrentIndex(0);
+    setLead(null);
+    setSaveSource(null);
+    setStarted(false);
+  }
 
-        <div className="qual-grid">
-          <Field label="الاسم">
-            <input value={answers.name} onChange={(event) => update("name", event.target.value)} placeholder="اكتب الاسم" required />
-          </Field>
-          <Field label="رقم الهاتف / واتساب">
-            <input value={answers.phone} onChange={(event) => update("phone", event.target.value)} placeholder="+218..." required />
-          </Field>
-          <Field label="المدينة">
-            <input value={answers.city} onChange={(event) => update("city", event.target.value)} placeholder="طرابلس" />
-          </Field>
-          <Field label="الجنسية">
-            <input value={answers.nationality} onChange={(event) => update("nationality", event.target.value)} placeholder="الجنسية" />
-          </Field>
+  if (lead) {
+    return (
+      <div className="chat-shell result-mode">
+        <section className="chat-card result-card" aria-live="polite">
+          <span className={`status-pill status-${lead.status}`}>{statusTitle(lead.status)}</span>
+          {saveSource ? <small className="save-source">{saveSource === "server" ? "تم الحفظ في قاعدة البيانات" : "تم الحفظ محلياً مؤقتاً"}</small> : null}
+          <h1>{statusTitle(lead.status)}</h1>
+          <p>{lead.clientMessage}</p>
 
-          <Field label="هل يوجد ختم دخول رسمي؟">
-            <select value={answers.hasEntryStamp} onChange={(event) => update("hasEntryStamp", event.target.value as QualificationAnswers["hasEntryStamp"])}>
-              <option value="unknown">غير متأكد</option>
-              <option value="yes">نعم</option>
-              <option value="no">لا</option>
-            </select>
-          </Field>
-          <Field label="هل دخلت ليبيا بطريقة رسمية؟">
-            <select value={answers.officialEntry} onChange={(event) => update("officialEntry", event.target.value as QualificationAnswers["officialEntry"])}>
-              <option value="unknown">غير متأكد</option>
-              <option value="yes">نعم</option>
-              <option value="no">لا</option>
-            </select>
-          </Field>
-          <Field label="هل عندك إقامة أو كفيل سابق؟">
-            <select value={answers.hasPreviousSponsor} onChange={(event) => update("hasPreviousSponsor", event.target.value as QualificationAnswers["hasPreviousSponsor"])}>
-              <option value="unknown">غير متأكد</option>
-              <option value="yes">نعم</option>
-              <option value="no">لا</option>
-            </select>
-          </Field>
-          <Field label="هل عندك إخلاء طرف؟">
-            <select value={answers.hasSponsorClearance} onChange={(event) => update("hasSponsorClearance", event.target.value as QualificationAnswers["hasSponsorClearance"])}>
-              <option value="unknown">غير متأكد</option>
-              <option value="yes">نعم</option>
-              <option value="no">لا</option>
-              <option value="not_applicable">لا ينطبق</option>
-            </select>
-          </Field>
-          <Field label="إذا لا، هل تستطيع جلب إخلاء طرف؟">
-            <select value={answers.canObtainSponsorClearance} onChange={(event) => update("canObtainSponsorClearance", event.target.value as QualificationAnswers["canObtainSponsorClearance"])}>
-              <option value="unknown">غير متأكد</option>
-              <option value="yes">نعم</option>
-              <option value="no">لا</option>
-              <option value="not_applicable">لا ينطبق</option>
-            </select>
-          </Field>
-          <Field label="هل الجواز موجود وصالح؟">
-            <select value={answers.passportValid} onChange={(event) => update("passportValid", event.target.value as QualificationAnswers["passportValid"])}>
-              <option value="unknown">يحتاج تأكيد</option>
-              <option value="yes">نعم</option>
-              <option value="no">لا</option>
-            </select>
-          </Field>
-          <Field label="هل الشهادة الصحية جاهزة؟">
-            <select value={answers.healthCertificateReady} onChange={(event) => update("healthCertificateReady", event.target.value as QualificationAnswers["healthCertificateReady"])}>
-              <option value="unknown">غير متأكد</option>
-              <option value="yes">نعم</option>
-              <option value="no">لا</option>
-            </select>
-          </Field>
-          <Field label="هل الصور جاهزة؟">
-            <select value={answers.photosReady} onChange={(event) => update("photosReady", event.target.value as QualificationAnswers["photosReady"])}>
-              <option value="unknown">غير متأكد</option>
-              <option value="yes">نعم</option>
-              <option value="no">لا</option>
-            </select>
-          </Field>
-          <Field label="هل توافق على الحضور ودفع الدفعة الأولى إذا كانت الحالة مناسبة؟">
-            <select value={answers.agreesToVisit} onChange={(event) => update("agreesToVisit", event.target.value as QualificationAnswers["agreesToVisit"])}>
-              <option value="yes">نعم</option>
-              <option value="no">لا حالياً</option>
-            </select>
-          </Field>
-          <Field label="هل تريد مساعدة في تعبئة منصة وافد؟">
-            <select value={answers.wantsWaafedHelp} onChange={(event) => update("wantsWaafedHelp", event.target.value as QualificationAnswers["wantsWaafedHelp"])}>
-              <option value="unknown">غير متأكد</option>
-              <option value="yes">نعم</option>
-              <option value="no">لا</option>
-            </select>
-          </Field>
-        </div>
-
-        <button className="btn primary qual-submit" type="submit" disabled={!canSubmit || isSubmitting}>{isSubmitting ? "جاري الحفظ..." : "تحديد الحالة وحفظ Lead"}</button>
-      </form>
-
-      <aside className="qual-result" aria-live="polite">
-        {lead ? (
-          <>
-            <span className={`status-pill status-${lead.status}`}>{lead.status}</span>
-            {saveSource ? <small className="save-source">{saveSource === "server" ? "تم الحفظ في قاعدة البيانات" : "تم الحفظ محلياً مؤقتاً"}</small> : null}
-            <h2>{lead.status === "ready_deposit" ? "جاهز للدفعة" : lead.status === "needs_documents" ? "يحتاج أوراق" : "لا يمكن البدء حالياً"}</h2>
-            <p>{lead.clientMessage}</p>
-            {lead.missingDocuments.length > 0 ? (
-              <div className="missing-box">
-                <strong>الأوراق الناقصة</strong>
-                {lead.missingDocuments.map((document) => <span key={document}>{getDocumentLabel(document)}</span>)}
-              </div>
-            ) : null}
-            <div className="next-action">
-              <strong>الإجراء التالي</strong>
-              <span>{lead.nextAction}</span>
+          {lead.missingDocuments.length > 0 ? (
+            <div className="missing-box light-box">
+              <strong>الأوراق المطلوبة</strong>
+              {lead.missingDocuments.map((document) => <span key={document}>{getDocumentLabel(document)}</span>)}
             </div>
-            <a className="btn secondary" href="/operations">فتح لوحة أيوب التجريبية</a>
-          </>
-        ) : (
-          <>
-            <span className="status-pill">جاهز للتصنيف</span>
-            <h2>النتيجة ستظهر هنا بعد الإجابة.</h2>
-            <p>هذه نسخة MVP محلية: تحفظ النتائج في المتصفح حتى نربطها لاحقاً بقاعدة بيانات Supabase.</p>
-          </>
-        )}
-      </aside>
+          ) : (
+            <div className="missing-box light-box">
+              <strong>الخطوة التالية</strong>
+              <span>تواصل مع المكتب لتأكيد وقت الحضور وتسليم الأوراق والدفعة الأولى.</span>
+            </div>
+          )}
+
+          <div className="chat-actions final-actions">
+            <a className="btn primary" href={`https://wa.me/${whatsappNumber}?text=${whatsappText(lead)}`}>فتح واتساب</a>
+            <a className="btn secondary" href="/operations">لوحة أيوب</a>
+            <button className="ghost-action" type="button" onClick={restart}>تعديل الإجابات</button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (!started) {
+    return (
+      <div className="chat-shell">
+        <section className="chat-card welcome-card">
+          <p className="section-label">مساعد التأهيل السريع</p>
+          <h1>السلام عليكم 👋 خلينا نعرف حالتك في أقل من دقيقة.</h1>
+          <p>جاوب على أسئلة بسيطة بزر واحد. لا يوجد دفع من خلال الموقع، والنتيجة فقط لتحديد الخطوة المناسبة.</p>
+          <div className="trust-row">
+            <span>أسئلة قصيرة</span>
+            <span>بدون مصطلحات صعبة</span>
+            <span>واتساب في النهاية</span>
+          </div>
+          <button className="btn primary big-start" type="button" onClick={() => setStarted(true)}>ابدأ الآن</button>
+        </section>
+      </div>
+    );
+  }
+
+  if (!currentStep) return null;
+
+  return (
+    <div className="chat-shell">
+      <section className="phone-chat" aria-label="شات التأهيل السريع">
+        <header className="chat-topbar">
+          <div>
+            <strong>الإقامة الآمنة</strong>
+            <span>مساعد التأهيل السريع</span>
+          </div>
+          <span className="online-dot">متاح</span>
+        </header>
+
+        <div className="chat-progress" aria-label={`سؤال ${currentIndex + 1} من ${visibleSteps.length}`}>
+          <span style={{ width: `${progress}%` }} />
+        </div>
+
+        <div className="message-stack">
+          <div className="bot-bubble small-bubble">سؤال {currentIndex + 1} من {visibleSteps.length}</div>
+          <div className="bot-bubble">
+            <span className="step-eyebrow">{currentStep.eyebrow}</span>
+            <h1>{currentStep.question}</h1>
+            {currentStep.helper ? <p>{currentStep.helper}</p> : null}
+          </div>
+
+          {currentStep.inputType === "choice" ? (
+            <div className="choice-grid" role="group" aria-label={currentStep.question}>
+              {currentStep.options?.map((option) => (
+                <button
+                  className={answers[currentStep.id] === option.value ? "choice-btn selected" : "choice-btn"}
+                  key={option.value}
+                  type="button"
+                  onClick={() => update(currentStep.id, option.value as never)}
+                >
+                  <span>{option.label}</span>
+                  {option.helper ? <small>{option.helper}</small> : null}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <label className="chat-input-label">
+              <span>{currentStep.eyebrow}</span>
+              <input
+                autoFocus
+                inputMode={currentStep.inputType === "tel" ? "tel" : "text"}
+                type={textInputMode(currentStep)}
+                value={answers[currentStep.id] as string}
+                onChange={(event) => update(currentStep.id, event.target.value as never)}
+                placeholder={currentStep.placeholder}
+              />
+            </label>
+          )}
+        </div>
+
+        <footer className="chat-actions">
+          <button className="ghost-action" type="button" onClick={back} disabled={currentIndex === 0}>رجوع</button>
+          <button className="btn primary" type="button" onClick={next} disabled={!canContinue || isSubmitting}>
+            {isSubmitting ? "جاري الحفظ..." : isLastStep ? "اعرض النتيجة" : "التالي"}
+          </button>
+        </footer>
+      </section>
     </div>
   );
 }
