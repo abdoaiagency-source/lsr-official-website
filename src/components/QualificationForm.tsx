@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { getDocumentLabel, type QualificationAnswers, type StoredLead } from "@/lib/conversion";
+import { sanitizeLocalLeadCache, toSafeLocalLead } from "@/lib/local-lead-cache";
 import {
   getVisibleChatSteps,
   initialChatAnswers,
@@ -13,9 +14,18 @@ import {
 const storageKey = "lsr_conversion_leads";
 const whatsappNumber = "218910000000";
 
+function readLocalLeadCache() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(storageKey) || "[]");
+    return sanitizeLocalLeadCache(parsed);
+  } catch {
+    return [];
+  }
+}
+
 function saveLead(lead: StoredLead) {
-  const current = JSON.parse(window.localStorage.getItem(storageKey) || "[]") as StoredLead[];
-  window.localStorage.setItem(storageKey, JSON.stringify([lead, ...current].slice(0, 100)));
+  const current = readLocalLeadCache();
+  window.localStorage.setItem(storageKey, JSON.stringify([toSafeLocalLead(lead), ...current].slice(0, 100)));
 }
 
 function statusTitle(status: StoredLead["status"]) {

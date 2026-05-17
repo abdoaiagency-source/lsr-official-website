@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createStoredLead } from "@/lib/conversion";
 import { qualificationAnswersSchema, leadRowToStoredLead, storedLeadToInsert } from "@/lib/leads";
+import { checkPublicLeadSubmissionLimit, recordPublicLeadSubmission } from "@/lib/public-lead-guard";
 import { getSupabaseConfig, insertLead } from "@/lib/supabase-rest";
 
 export const runtime = "nodejs";
@@ -17,6 +18,16 @@ export async function POST(request: Request) {
   }
 
   const deterministicLead = createStoredLead(parsed.data);
+  const submissionLimit = checkPublicLeadSubmissionLimit(request, deterministicLead.phone);
+
+  if (submissionLimit.limited) {
+    return NextResponse.json(
+      { ok: false, error: "too_many_lead_submissions", retryAfter: submissionLimit.retryAfter },
+      { status: 429, headers: { "Retry-After": String(submissionLimit.retryAfter) } },
+    );
+  }
+
+  recordPublicLeadSubmission(request, deterministicLead.phone);
 
   if (!getSupabaseConfig()) {
     return NextResponse.json(

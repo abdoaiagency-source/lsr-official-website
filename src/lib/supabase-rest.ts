@@ -1,4 +1,5 @@
 import type { ConversionResult, ConvertLeadPayload } from "./case-conversion";
+import { buildAuditLogRow, type AuditLogInput } from "./audit-log";
 import { documentStatusToDb, type CaseStatus, type DbDocumentStatus, type LeadResolution, type StaffDocumentStatus, type TaskStatus } from "./operations";
 import type { LeadRow } from "./leads";
 
@@ -261,6 +262,14 @@ export async function updateTask(publicId: string, patch: { status?: TaskStatus;
   });
   if (!rows[0]) throw new Error("Supabase task update returned no task");
   return rows[0];
+}
+
+export async function insertActivityLog(input: AuditLogInput): Promise<void> {
+  await supabaseFetch("lsr_activity_logs", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify(buildAuditLogRow(input)),
+  });
 }
 
 export async function listActivityForRequest(requestId: string): Promise<ActivityRow[]> {

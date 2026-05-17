@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthorized } from "@/lib/admin-auth";
-import { caseStatuses } from "@/lib/operations";
-import { getSupabaseConfig, listCases, updateCaseByPublicId } from "@/lib/supabase-rest";
+import { parseCasePatchPayload } from "@/lib/admin-route-schemas";
+import { getSupabaseConfig, insertActivityLog, listCases, updateCaseByPublicId } from "@/lib/supabase-rest";
 
 export const runtime = "nodejs";
 
@@ -23,27 +23,38 @@ export async function PATCH(request: Request) {
   if (!getSupabaseConfig()) return NextResponse.json({ ok: false, error: "persistence_not_configured" }, { status: 503 });
 
   const body = await request.json().catch(() => null);
-  const id = typeof body?.id === "string" ? body.id.trim() : "";
-  const status = typeof body?.status === "string" ? body.status : undefined;
-  const priority = Number.isFinite(Number(body?.priority)) ? Math.max(1, Math.min(3, Number(body.priority))) : undefined;
-  const clientSafeSummary = typeof body?.clientSafeSummary === "string" ? body.clientSafeSummary.trim().slice(0, 1500) : undefined;
-  const internalNotes = typeof body?.internalNotes === "string" ? body.internalNotes.trim().slice(0, 2500) : undefined;
-  const nextAction = typeof body?.nextAction === "string" ? body.nextAction.trim().slice(0, 500) : undefined;
-  const nextActionDueAt = typeof body?.nextActionDueAt === "string" && body.nextActionDueAt ? body.nextActionDueAt : null;
-
-  if (!id || (status && !caseStatuses.includes(status as never))) {
+  let parsed: ReturnType<typeof parseCasePatchPayload>;
+  try {
+    parsed = parseCasePatchPayload(body);
+  } catch {
     return NextResponse.json({ ok: false, error: "invalid_payload", message: "بيانات الحالة غير صحيحة." }, { status: 400 });
   }
+  const changedFields = [
+    parsed.status !== undefined ? "status" : null,
+    parsed.priority !== undefined ? "priority" : null,
+    parsed.clientSafeSummary !== undefined ? "client_safe_summary" : null,
+    parsed.internalNotes !== undefined ? "internal_notes" : null,
+    parsed.nextAction !== undefined ? "next_action" : null,
+    parsed.nextActionDueAt !== undefined ? "next_action_due_at" : null,
+  ].filter(Boolean) as string[];
 
   try {
-    const updated = await updateCaseByPublicId(id, {
-      ...(status ? { status: status as never } : {}),
-      ...(priority ? { priority } : {}),
-      ...(clientSafeSummary !== undefined ? { client_safe_summary: clientSafeSummary } : {}),
-      ...(internalNotes !== undefined ? { internal_notes: internalNotes } : {}),
-      ...(nextAction !== undefined ? { next_action: nextAction } : {}),
-      ...(nextActionDueAt !== undefined ? { next_action_due_at: nextActionDueAt } : {}),
+    const updated = await updateCaseByPublicId(parsed.id, {
+      ...(parsed.status ? { status: parsed.status } : {}),
+      ...(parsed.priority ? { priority: parsed.priority } : {}),
+      ...(parsed.clientSafeSummary !== undefined ? { client_safe_summary: parsed.clientSafeSummary } : {}),
+      ...(parsed.internalNotes !== undefined ? { internal_notes: parsed.internalNotes } : {}),
+      ...(parsed.nextAction !== undefined ? { next_action: parsed.nextAction } : {}),
+      ...(parsed.nextActionDueAt !== undefined ? { next_action_due_at: parsed.nextActionDueAt } : {}),
     });
+    await insertActivityLog({
+      eventType: "case_updated",
+      requestId: updated.id,
+      clientId: updated.client_id,
+      requestPublicId: updated.public_id,
+      actorRole: "admin",
+      changedFields,
+    }).catch((error) => console.error("case_audit_log_failed", error));
     return NextResponse.json({ ok: true, case: updated, message: "تم تحديث الحالة." });
   } catch (error) {
     console.error("case_update_failed", error);
