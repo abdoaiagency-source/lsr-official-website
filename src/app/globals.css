@@ -559,3 +559,42 @@ footer a { direction: ltr; overflow-wrap: anywhere; }
 .session-panel { grid-template-columns: auto auto auto minmax(260px, 1fr) !important; }
 .session-panel strong { color: var(--ink); font-weight: 950; align-self: center; }
 @media (max-width: 820px) { .session-panel { grid-template-columns: 1fr !important; } }
+
+/* Strategic management dashboard */
+.strategic-page { gap: 20px; }
+.strategic-toolbar { position: sticky; top: 10px; z-index: 5; backdrop-filter: blur(14px); }
+.strategic-metrics .metric-card { min-height: 150px; }
+.strategic-metrics .metric-gold { background: linear-gradient(135deg, #fff7df, #ffffff); border-color: rgba(185,130,39,.35); }
+.strategic-metrics .metric-red { background: linear-gradient(135deg, #fff1ee, #ffffff); border-color: rgba(190,55,35,.28); }
+.strategic-metrics .metric-red strong { color: #b42318; }
+.strategic-two-column { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 18px; align-items: stretch; }
+.decision-panel h2, .risk-panel h2, .funnel-panel h2, .workload-panel h2 { font-size: clamp(24px, 3vw, 38px); margin: 0 0 16px; }
+.priority-row { display: grid; grid-template-columns: 72px 1fr; gap: 14px; align-items: center; padding: 14px; border-radius: 20px; margin-top: 10px; background: rgba(248,243,233,.72); border: 1px solid rgba(8,32,51,.08); }
+.priority-row strong { display: grid; place-items: center; width: 54px; height: 54px; border-radius: 18px; background: var(--ink); color: #fff; font-size: 24px; direction: ltr; }
+.priority-row span { color: var(--ink); font-weight: 950; line-height: 1.5; }
+.priority-gold strong { background: var(--gold); }
+.priority-red strong { background: #b42318; }
+.priority-amber strong { background: #d97706; }
+.priority-blue strong { background: #155e75; }
+.risk-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.risk-card, .workload-card, .funnel-stage { border: 1px solid rgba(8,32,51,.08); background: rgba(255,255,255,.74); border-radius: 22px; padding: 16px; }
+.risk-card strong { display: block; font-size: 34px; color: var(--ink); direction: ltr; }
+.risk-card span, .workload-card h3, .funnel-stage h3 { display: block; color: var(--ink); font-weight: 950; }
+.risk-card small, .funnel-stage p, .muted-line { color: var(--muted); line-height: 1.7; font-weight: 820; }
+.funnel-track { display: grid; grid-template-columns: repeat(6, minmax(140px, 1fr)); gap: 12px; }
+.funnel-stage { position: relative; min-height: 170px; display: grid; align-content: start; gap: 8px; }
+.funnel-stage .stage-index { width: 34px; height: 34px; border-radius: 999px; background: #fff4d8; color: #7d571b; display: grid; place-items: center; font-weight: 950; direction: ltr; }
+.funnel-stage strong { font-size: 40px; line-height: 1; color: var(--gold); direction: ltr; }
+.workload-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.workload-card { display: grid; gap: 10px; }
+.workload-card p { margin: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-weight: 850; }
+.workload-card p strong { color: var(--ink); font-size: 24px; direction: ltr; }
+@media (max-width: 1180px) {
+  .strategic-two-column, .workload-grid { grid-template-columns: 1fr; }
+  .funnel-track { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 680px) {
+  .risk-grid, .funnel-track { grid-template-columns: 1fr; }
+  .priority-row { grid-template-columns: 56px 1fr; }
+  .priority-row strong { width: 46px; height: 46px; }
+}

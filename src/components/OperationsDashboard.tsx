@@ -1,10 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { conversionErrorMessage, type ConversionResult } from "@/lib/case-conversion";
 import { filterLeadsForOperations, leadResolutionLabels, leadResolutionValues, type LeadFilterStatus, type LeadResolution, type OperationsLead } from "@/lib/operations";
 import { caseStatusLabels as statusLabels } from "@/lib/operations";
-import type { LeadStatus } from "@/lib/conversion";
 
 type LeadsResponse = { ok: boolean; leads?: OperationsLead[]; error?: string; message?: string };
 type ConvertResponse = { ok: boolean; result?: ConversionResult; error?: string; message?: string };
@@ -29,7 +29,7 @@ function authHeaders(password: string): Record<string, string> {
 }
 
 export default function OperationsDashboard() {
-  const [password, setPassword] = useState("");
+  const [password] = useState("");
   const [leads, setLeads] = useState<OperationsLead[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [statusFilter, setStatusFilter] = useState<LeadFilterStatus>("all");
@@ -123,10 +123,10 @@ export default function OperationsDashboard() {
           <p className="hero-copy">هذه اللوحة هي نقطة التحويل من اهتمام الموقع إلى ملف عمل واضح: حالة، مستندات، مهمة متابعة، ومسؤول.</p>
         </div>
         <nav className="ops-actions" aria-label="روابط التشغيل">
-          <a className="btn secondary" href="/cases">الحالات</a>
-          <a className="btn secondary" href="/tasks">المهام</a>
-          <a className="btn secondary" href="/management">الإدارة</a>
-          <a className="btn" href="/qualification">نموذج التأهيل</a>
+          <Link className="btn secondary" href="/cases">الحالات</Link>
+          <Link className="btn secondary" href="/tasks">المهام</Link>
+          <Link className="btn secondary" href="/management">الإدارة</Link>
+          <Link className="btn" href="/qualification">نموذج التأهيل</Link>
         </nav>
       </section>
 

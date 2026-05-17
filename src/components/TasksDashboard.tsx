@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { formatDueLabel, taskBucket, taskStatusLabels, type TaskBucket, type TaskStatus } from "@/lib/operations";
 import type { TaskRow } from "@/lib/supabase-rest";
@@ -9,7 +10,7 @@ const bucketLabels: Record<TaskBucket | "all", string> = { all: "كل المها
 function authHeaders(password: string): Record<string, string> { return password.trim() ? { Authorization: `Bearer ${password.trim()}` } : {}; }
 
 export default function TasksDashboard() {
-  const [password, setPassword] = useState("");
+  const [password] = useState("");
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [bucket, setBucket] = useState<TaskBucket | "all">("today");
   const [notice, setNotice] = useState({ type: "info", text: "حمّل المهام لمتابعة اليوم." });
@@ -54,7 +55,7 @@ export default function TasksDashboard() {
     <main className="ops-page staff-page">
       <section className="ops-hero glass-panel">
         <div><p className="eyebrow">LSR OS · المتابعة اليومية</p><h1>المهام والمتابعات</h1><p className="hero-copy">قائمة عملية لما يجب تنفيذه اليوم وما تأخر وما اكتمل.</p></div>
-        <nav className="ops-actions"><a className="btn secondary" href="/operations">الطلبات</a><a className="btn secondary" href="/cases">الحالات</a><a className="btn secondary" href="/management">الإدارة</a></nav>
+        <nav className="ops-actions"><Link className="btn secondary" href="/operations">الطلبات</Link><Link className="btn secondary" href="/cases">الحالات</Link><Link className="btn secondary" href="/management">الإدارة</Link></nav>
       </section>
       <section className="admin-auth-panel session-panel"><strong>تم تسجيل الدخول كموظف LSR</strong><button onClick={loadTasks} disabled={loading}>{loading ? "جاري العمل..." : "تحميل المهام"}</button><a className="btn secondary" href="/api/admin/auth/logout" onClick={(event) => { event.preventDefault(); fetch("/api/admin/auth/logout", { method: "POST" }).then(() => location.href = "/signin"); }}>خروج</a><p className={`ops-notice ops-notice-${notice.type}`}>{notice.text}</p></section>
       <section className="staff-filters glass-panel"><select value={bucket} onChange={(event) => setBucket(event.target.value as TaskBucket | "all")}>{Object.entries(bucketLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></section>

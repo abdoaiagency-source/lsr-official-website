@@ -12,7 +12,7 @@ const statusFilterLabels: Record<CaseStatus | "all" | "active", string> = { acti
 function authHeaders(password: string): Record<string, string> { return password.trim() ? { Authorization: `Bearer ${password.trim()}` } : {}; }
 
 export default function CasesDashboard() {
-  const [password, setPassword] = useState("");
+  const [password] = useState("");
   const [cases, setCases] = useState<CaseRow[]>([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<CaseStatus | "all" | "active">("active");

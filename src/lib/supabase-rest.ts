@@ -210,6 +210,10 @@ export async function updateCaseByPublicId(publicId: string, patch: Partial<Pick
   return rows[0];
 }
 
+export async function listDocuments(): Promise<DocumentRow[]> {
+  return supabaseFetch<DocumentRow[]>("lsr_documents?select=*&order=updated_at.desc&limit=500");
+}
+
 export async function listDocumentsForRequest(requestId: string): Promise<DocumentRow[]> {
   return supabaseFetch<DocumentRow[]>(`lsr_documents?select=*&request_id=eq.${encodeURIComponent(requestId)}&order=required.desc,created_at.asc`);
 }

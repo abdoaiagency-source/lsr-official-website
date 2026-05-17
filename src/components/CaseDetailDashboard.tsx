@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { caseStatusLabels, caseStatuses, documentStatusFromDb, documentStatusLabels, staffDocumentStatuses, type CaseStatus, type StaffDocumentStatus } from "@/lib/operations";
 import type { ActivityRow, CaseRow, DocumentRow, TaskRow } from "@/lib/supabase-rest";
@@ -8,7 +9,7 @@ type DetailResponse = { ok: boolean; case?: CaseRow; documents?: DocumentRow[]; 
 function authHeaders(password: string): Record<string, string> { return password.trim() ? { Authorization: `Bearer ${password.trim()}` } : {}; }
 
 export default function CaseDetailDashboard({ caseId }: { caseId: string }) {
-  const [password, setPassword] = useState("");
+  const [password] = useState("");
   const [item, setItem] = useState<CaseRow | null>(null);
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
@@ -64,7 +65,7 @@ export default function CaseDetailDashboard({ caseId }: { caseId: string }) {
 
   return (
     <main className="ops-page staff-page">
-      <section className="ops-hero glass-panel"><div><p className="eyebrow">LSR OS · تفاصيل الحالة</p><h1>{item?.client?.full_name || caseId}</h1><p className="hero-copy">تحكم في الحالة، المستندات، الملاحظات، والإجراء القادم من شاشة واحدة.</p></div><nav className="ops-actions"><a className="btn secondary" href="/cases">كل الحالات</a><a className="btn secondary" href="/tasks">المهام</a><a className="btn secondary" href="/operations">الطلبات</a></nav></section>
+      <section className="ops-hero glass-panel"><div><p className="eyebrow">LSR OS · تفاصيل الحالة</p><h1>{item?.client?.full_name || caseId}</h1><p className="hero-copy">تحكم في الحالة، المستندات، الملاحظات، والإجراء القادم من شاشة واحدة.</p></div><nav className="ops-actions"><Link className="btn secondary" href="/cases">كل الحالات</Link><Link className="btn secondary" href="/tasks">المهام</Link><Link className="btn secondary" href="/operations">الطلبات</Link></nav></section>
       <section className="admin-auth-panel session-panel"><strong>تم تسجيل الدخول كموظف LSR</strong><button onClick={load} disabled={loading}>{loading ? "جاري العمل..." : "تحميل التفاصيل"}</button><a className="btn secondary" href="/api/admin/auth/logout" onClick={(event) => { event.preventDefault(); fetch("/api/admin/auth/logout", { method: "POST" }).then(() => location.href = "/signin"); }}>خروج</a><p className={`ops-notice ops-notice-${notice.type}`}>{notice.text}</p></section>
       {item ? (
         <section className="case-detail-grid">
