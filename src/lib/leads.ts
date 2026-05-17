@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { leadStatuses, type LeadStatus, type QualificationAnswers, type StoredLead } from "./conversion";
+import type { LeadResolution } from "./operations";
 
 const yesNoUnknown = z.enum(["yes", "no", "unknown"]);
 const yesNo = z.enum(["yes", "no"]);
@@ -58,6 +59,9 @@ export type LeadRow = {
   converted?: boolean | null;
   converted_request_id?: string | null;
   converted_at?: string | null;
+  resolution?: LeadResolution | null;
+  resolution_notes?: string | null;
+  resolved_at?: string | null;
 };
 
 export function leadRowToStoredLead(row: LeadRow): StoredLead {
@@ -88,6 +92,9 @@ export function leadRowToStoredLead(row: LeadRow): StoredLead {
     converted: Boolean(row.converted),
     convertedRequestId: row.converted_request_id ?? null,
     convertedAt: row.converted_at ?? null,
+    resolution: row.resolution ?? "active",
+    resolutionNotes: row.resolution_notes ?? null,
+    resolvedAt: row.resolved_at ?? null,
   };
 }
 

@@ -2,318 +2,186 @@
 
 import { useMemo, useState } from "react";
 import { conversionErrorMessage, type ConversionResult } from "@/lib/case-conversion";
-import { getDocumentLabel, type LeadStatus, type MissingDocument, type StoredLead } from "@/lib/conversion";
+import { filterLeadsForOperations, leadResolutionLabels, leadResolutionValues, type LeadFilterStatus, type LeadResolution, type OperationsLead } from "@/lib/operations";
+import { caseStatusLabels as statusLabels } from "@/lib/operations";
+import type { LeadStatus } from "@/lib/conversion";
 
-const storageKey = "lsr_conversion_leads";
-const adminTokenKey = "lsr_admin_token";
+type LeadsResponse = { ok: boolean; leads?: OperationsLead[]; error?: string; message?: string };
+type ConvertResponse = { ok: boolean; result?: ConversionResult; error?: string; message?: string };
 
-const labels: Record<LeadStatus, string> = {
-  rejected: "لا يمكن البدء حالياً",
-  needs_documents: "يحتاج أوراق",
-  ready_deposit: "جاهز للدفعة",
-  submitted: "تم التسليم",
-  in_process: "تحت الإجراء",
-  completed: "مكتمل",
+type Notice = { type: "success" | "error" | "info"; text: string };
+
+const statusFilterLabels: Record<LeadFilterStatus, string> = {
+  all: "كل الحالات",
+  converted: "تم تحويلها",
+  ready_deposit: statusLabels.ready_deposit,
+  needs_documents: statusLabels.needs_documents,
+  rejected: statusLabels.rejected,
+  submitted: statusLabels.submitted,
+  in_process: statusLabels.in_process,
+  completed: statusLabels.completed,
 };
 
-const priorityOrder: LeadStatus[] = ["ready_deposit", "needs_documents", "rejected", "submitted", "in_process", "completed"];
+const statusFilters: LeadFilterStatus[] = ["all", "ready_deposit", "needs_documents", "rejected", "converted"];
 
-const metricHints: Record<LeadStatus, string> = {
-  ready_deposit: "أولوية فورية",
-  needs_documents: "متابعة أوراق",
-  rejected: "مرفوض مبدئياً",
-  submitted: "تم الاستلام",
-  in_process: "قيد العمل",
-  completed: "منتهي",
-};
-
-type DataSource = "server" | "local";
-
-type NoticeTone = "info" | "success" | "error";
-
-type Notice = {
-  tone: NoticeTone;
-  text: string;
-};
-
-function readLocalLeads() {
-  if (typeof window === "undefined") return [];
-  return JSON.parse(window.localStorage.getItem(storageKey) || "[]") as StoredLead[];
-}
-
-function writeLocalLeads(leads: StoredLead[]) {
-  window.localStorage.setItem(storageKey, JSON.stringify(leads));
-}
-
-function statusCounts(leads: StoredLead[]) {
-  return priorityOrder.reduce<Record<LeadStatus, number>>((acc, status) => {
-    acc[status] = leads.filter((lead) => lead.status === status && !lead.converted).length;
-    return acc;
-  }, {
-    rejected: 0,
-    needs_documents: 0,
-    ready_deposit: 0,
-    submitted: 0,
-    in_process: 0,
-    completed: 0,
-  });
-}
-
-function documentLabel(document: string) {
-  const known = ["entry_stamp_or_visa_proof", "passport_validity_confirmation", "health_certificate", "photos", "sponsor_clearance"];
-  return known.includes(document) ? getDocumentLabel(document as MissingDocument) : document;
+function authHeaders(password: string): Record<string, string> {
+  return password.trim() ? { Authorization: `Bearer ${password.trim()}` } : {};
 }
 
 export default function OperationsDashboard() {
-  const [leads, setLeads] = useState<StoredLead[]>(() => readLocalLeads());
-  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
-  const [adminToken, setAdminToken] = useState(() => typeof window === "undefined" ? "" : window.localStorage.getItem(adminTokenKey) || "");
-  const [dataSource, setDataSource] = useState<DataSource>("local");
-  const [notice, setNotice] = useState<Notice>({
-    tone: "info",
-    text: "اللوحة تعرض البيانات المحلية مؤقتاً. اضغط تحميل من قاعدة البيانات عند تفعيل الربط.",
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [convertingId, setConvertingId] = useState<string | null>(null);
+  const [password, setPassword] = useState("");
+  const [leads, setLeads] = useState<OperationsLead[]>([]);
+  const [selectedId, setSelectedId] = useState("");
+  const [statusFilter, setStatusFilter] = useState<LeadFilterStatus>("all");
+  const [resolutionFilter, setResolutionFilter] = useState<LeadResolution | "all">("active");
+  const [search, setSearch] = useState("");
+  const [resolutionNotes, setResolutionNotes] = useState("");
+  const [notice, setNotice] = useState<Notice>({ type: "info", text: "حمّل الطلبات من قاعدة البيانات لبدء العمل." });
+  const [loading, setLoading] = useState(false);
 
-  const counts = useMemo(() => statusCounts(leads), [leads]);
-  const unconvertedLeads = useMemo(() => {
-    return leads
-      .filter((lead) => !lead.converted)
-      .sort((a, b) => priorityOrder.indexOf(a.status) - priorityOrder.indexOf(b.status));
-  }, [leads]);
-  const convertedCount = leads.filter((lead) => lead.converted).length;
-  const selectedLead = useMemo(() => {
-    return unconvertedLeads.find((lead) => lead.id === selectedLeadId) ?? unconvertedLeads[0] ?? null;
-  }, [selectedLeadId, unconvertedLeads]);
+  const visibleLeads = useMemo(() => filterLeadsForOperations(leads, { status: statusFilter, resolution: resolutionFilter, search }), [leads, statusFilter, resolutionFilter, search]);
+  const selected = useMemo(() => leads.find((lead) => lead.id === selectedId) ?? visibleLeads[0], [leads, selectedId, visibleLeads]);
 
-  async function loadLeads(token = adminToken) {
-    setIsLoading(true);
+  const metrics = useMemo(() => ({
+    active: leads.filter((lead) => !lead.converted && (lead.resolution ?? "active") === "active").length,
+    ready: leads.filter((lead) => !lead.converted && lead.status === "ready_deposit" && (lead.resolution ?? "active") === "active").length,
+    docs: leads.filter((lead) => !lead.converted && lead.status === "needs_documents" && (lead.resolution ?? "active") === "active").length,
+    converted: leads.filter((lead) => lead.converted).length,
+    resolved: leads.filter((lead) => (lead.resolution ?? "active") !== "active").length,
+  }), [leads]);
+
+  async function loadLeads() {
+    setLoading(true);
+    setNotice({ type: "info", text: "جاري تحميل الطلبات..." });
     try {
-      const response = await fetch("/api/admin/leads", {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      const payload = await response.json();
-
-      if (response.ok && Array.isArray(payload.leads)) {
-        setLeads(payload.leads);
-        setSelectedLeadId(payload.leads.find((lead: StoredLead) => !lead.converted)?.id ?? null);
-        setDataSource("server");
-        setNotice({ tone: "success", text: "تم تحميل الطلبات غير المحولة من قاعدة البيانات." });
-        if (token) window.localStorage.setItem(adminTokenKey, token);
-        return;
-      }
-
-      if (response.status === 401) {
-        setNotice({ tone: "error", text: "أدخل كلمة مرور الإدارة لقراءة بيانات قاعدة البيانات." });
-      } else {
-        setNotice({ tone: "error", text: "قاعدة البيانات غير مفعلة حالياً، لذلك يتم عرض البيانات المحلية المؤقتة." });
-      }
-    } catch {
-      setNotice({ tone: "error", text: "تعذر الاتصال بـ API، لذلك يتم عرض البيانات المحلية المؤقتة." });
+      const response = await fetch("/api/admin/leads", { headers: authHeaders(password) });
+      const data = (await response.json()) as LeadsResponse;
+      if (!response.ok || !data.ok) throw new Error(data.message || data.error || "load_failed");
+      setLeads(data.leads ?? []);
+      setSelectedId(data.leads?.[0]?.id ?? "");
+      setNotice({ type: "success", text: `تم تحميل ${data.leads?.length ?? 0} طلب.` });
+    } catch (error) {
+      setNotice({ type: "error", text: error instanceof Error ? error.message : "تعذر تحميل الطلبات." });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-
-    setLeads(readLocalLeads());
-    setDataSource("local");
   }
 
-  async function updateStatus(id: string, status: LeadStatus) {
-    if (dataSource === "server") {
-      try {
-        const response = await fetch("/api/admin/leads", {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
-          },
-          body: JSON.stringify({ id, status }),
-        });
-        const payload = await response.json();
-        if (response.ok && payload.lead) {
-          setLeads((current) => current.map((lead) => lead.id === id ? payload.lead : lead));
-          return;
-        }
-      } catch {
-        setNotice({ tone: "error", text: "فشل تحديث قاعدة البيانات. تم تنفيذ التحديث محلياً مؤقتاً." });
-      }
-    }
-
-    const nextLeads = leads.map((lead) => lead.id === id ? { ...lead, status } : lead);
-    setLeads(nextLeads);
-    writeLocalLeads(nextLeads);
-  }
-
-  async function convertSelectedLead() {
-    if (!selectedLead) return;
-
-    if (dataSource !== "server") {
-      setNotice({ tone: "error", text: "التحويل إلى حالة يحتاج الاتصال بقاعدة البيانات. اضغط تحميل من قاعدة البيانات أولاً." });
-      return;
-    }
-
-    const confirmed = window.confirm("هل أنت متأكد من تحويل هذا الطلب إلى حالة؟");
-    if (!confirmed) return;
-
-    setConvertingId(selectedLead.id);
+  async function convertSelected() {
+    if (!selected) return;
+    if (selected.converted) return setNotice({ type: "error", text: "هذا الطلب محوّل مسبقاً." });
+    if ((selected.resolution ?? "active") !== "active") return setNotice({ type: "error", text: "لا يمكن تحويل طلب مغلق. أعده إلى نشط أولاً." });
+    setLoading(true);
     try {
       const response = await fetch("/api/admin/leads/convert", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
-        },
-        body: JSON.stringify({ leadPublicId: selectedLead.id }),
+        headers: { "Content-Type": "application/json", ...authHeaders(password) },
+        body: JSON.stringify({ id: selected.id }),
       });
-      const payload = await response.json() as ConversionResult & { message?: string };
-
-      if (response.ok && payload.ok) {
-        setLeads((current) => current.map((lead) => lead.id === selectedLead.id ? {
-          ...lead,
-          converted: true,
-          convertedRequestId: payload.request_public_id ?? null,
-          convertedAt: new Date().toISOString(),
-        } : lead));
-        setSelectedLeadId(null);
-        setNotice({ tone: "success", text: payload.message || `تم تحويل الطلب إلى حالة بنجاح. رقم الحالة: ${payload.request_public_id}` });
-        return;
+      const data = (await response.json()) as ConvertResponse;
+      if (!response.ok || !data.ok || !data.result?.ok) {
+        throw new Error(data.message || conversionErrorMessage(data.result?.error, data.result?.converted_request_id));
       }
-
-      setNotice({
-        tone: "error",
-        text: payload.message || conversionErrorMessage(payload.error, payload.converted_request_id),
-      });
-    } catch {
-      setNotice({ tone: "error", text: conversionErrorMessage("transaction_failed") });
+      setLeads((current) => current.map((lead) => lead.id === selected.id ? { ...lead, converted: true, convertedRequestId: data.result?.request_public_id, convertedAt: new Date().toISOString() } : lead));
+      setNotice({ type: "success", text: `تم تحويل الطلب إلى حالة رقم ${data.result.request_public_id}.` });
+    } catch (error) {
+      setNotice({ type: "error", text: error instanceof Error ? error.message : "تعذر التحويل." });
     } finally {
-      setConvertingId(null);
+      setLoading(false);
     }
   }
 
-  function clearLocalDemo() {
-    window.localStorage.removeItem(storageKey);
-    if (dataSource === "local") setLeads([]);
+  async function resolveSelected(resolution: LeadResolution) {
+    if (!selected) return;
+    if (selected.converted && resolution !== "active") return setNotice({ type: "error", text: "لا يمكن إغلاق طلب محوّل." });
+    if (resolution !== "active" && !confirm("سيتم إغلاق الطلب ومنع تحويله إلى حالة. هل تريد المتابعة؟")) return;
+    setLoading(true);
+    try {
+      const response = await fetch("/api/admin/leads/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders(password) },
+        body: JSON.stringify({ id: selected.id, resolution, notes: resolutionNotes }),
+      });
+      const data = (await response.json()) as LeadsResponse & { lead?: OperationsLead };
+      if (!response.ok || !data.ok || !data.lead) throw new Error(data.message || data.error || "resolve_failed");
+      setLeads((current) => current.map((lead) => lead.id === selected.id ? data.lead! : lead));
+      setResolutionNotes("");
+      setNotice({ type: "success", text: data.message || "تم تحديث الطلب." });
+    } catch (error) {
+      setNotice({ type: "error", text: error instanceof Error ? error.message : "تعذر تحديث الطلب." });
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <main className="ops-page">
-      <section className="ops-hero">
+    <main className="ops-page staff-page">
+      <section className="ops-hero glass-panel">
         <div>
-          <p className="section-label">Lead-to-Case Conversion MVP</p>
-          <h1>لوحة مراجعة الطلبات وتحويلها إلى حالات تشغيلية.</h1>
-          <p>راجع بيانات الطلب، ثم حوّله مرة واحدة إلى عميل، حالة، قائمة مستندات، مهمة متابعة، وسجل نشاط.</p>
+          <p className="eyebrow">LSR OS · تشغيل الطلبات</p>
+          <h1>مراجعة الطلبات وتحويل الجاهز إلى حالات تشغيلية</h1>
+          <p className="hero-copy">هذه اللوحة هي نقطة التحويل من اهتمام الموقع إلى ملف عمل واضح: حالة، مستندات، مهمة متابعة، ومسؤول.</p>
         </div>
-        <div className="ops-actions">
-          <a className="btn primary" href="/qualification">إضافة طلب جديد</a>
-          <button className="btn secondary" type="button" onClick={() => void loadLeads()}>{isLoading ? "جاري التحميل..." : "تحميل الطلبات"}</button>
-          <button className="btn secondary" type="button" onClick={clearLocalDemo}>مسح المحلي</button>
-        </div>
+        <nav className="ops-actions" aria-label="روابط التشغيل">
+          <a className="btn secondary" href="/cases">الحالات</a>
+          <a className="btn secondary" href="/tasks">المهام</a>
+          <a className="btn secondary" href="/management">الإدارة</a>
+          <a className="btn" href="/qualification">نموذج التأهيل</a>
+        </nav>
       </section>
 
       <section className="admin-auth-panel">
-        <label>
-          <span>كلمة مرور الإدارة</span>
-          <input value={adminToken} onChange={(event) => setAdminToken(event.target.value)} type="password" placeholder="اختياري إذا لم تكن API محمية" />
-        </label>
-        <button type="button" onClick={() => void loadLeads(adminToken)}>تحميل من قاعدة البيانات</button>
-        <p className={`ops-notice ops-notice-${notice.tone}`}><strong>{dataSource === "server" ? "Database" : "Local"}</strong> · {notice.text}</p>
+        <label><span>كلمة مرور الإدارة</span><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="اتركها فارغة إذا كانت البيئة تسمح" /></label>
+        <button onClick={loadLeads} disabled={loading}>{loading ? "جاري العمل..." : "تحميل الطلبات"}</button>
+        <p className={`ops-notice ops-notice-${notice.type}`}>{notice.text}</p>
       </section>
 
-      <section className="metrics-grid" aria-label="مؤشرات الطلبات غير المحولة">
-        {priorityOrder.map((status) => (
-          <article className="metric-card" key={status}>
-            <span>{labels[status]}</span>
-            <strong>{counts[status]}</strong>
-            <small>{metricHints[status]}</small>
-          </article>
-        ))}
-        <article className="metric-card converted-metric">
-          <span>تم تحويلها</span>
-          <strong>{convertedCount}</strong>
-          <small>مؤرشف تشغيلياً</small>
-        </article>
+      <section className="metrics-grid">
+        <div className="metric-card glass-panel"><span>طلبات نشطة</span><strong>{metrics.active}</strong><small>غير محوّلة</small></div>
+        <div className="metric-card glass-panel"><span>جاهزة للدفعة</span><strong>{metrics.ready}</strong><small>أولوية تجارية</small></div>
+        <div className="metric-card glass-panel"><span>تحتاج مستندات</span><strong>{metrics.docs}</strong><small>متابعة أوراق</small></div>
+        <div className="metric-card glass-panel converted-metric"><span>تم تحويلها</span><strong>{metrics.converted}</strong><small>أصبحت حالات</small></div>
+        <div className="metric-card glass-panel"><span>مغلقة</span><strong>{metrics.resolved}</strong><small>مفقود / مكرر</small></div>
+      </section>
+
+      <section className="staff-filters glass-panel">
+        <input aria-label="بحث" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="بحث بالاسم أو الهاتف أو رقم الطلب" />
+        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as LeadFilterStatus)}>{statusFilters.map((status) => <option key={status} value={status}>{statusFilterLabels[status]}</option>)}</select>
+        <select value={resolutionFilter} onChange={(event) => setResolutionFilter(event.target.value as LeadResolution | "all")}><option value="all">كل الإغلاقات</option><option value="active">نشط فقط</option>{leadResolutionValues.filter((value) => value !== "active").map((value) => <option key={value} value={value}>{leadResolutionLabels[value]}</option>)}</select>
       </section>
 
       <section className="conversion-workspace">
-        <div className="queue-panel lead-review-list">
-          <div className="queue-head compact-head">
-            <div>
-              <p className="section-label">طلبات غير محولة</p>
-              <h2>ابدأ بالجاهز للدفعة، ثم الطلبات الناقصة.</h2>
-            </div>
-          </div>
-
+        <div className="queue-panel glass-panel">
+          <div className="queue-head compact-head"><h2>قائمة المراجعة</h2><p className="ops-notice">{visibleLeads.length} طلب مطابق للفلاتر.</p></div>
           <div className="lead-list">
-            {unconvertedLeads.length === 0 ? (
-              <div className="empty-state">
-                <h3>لا توجد طلبات غير محولة.</h3>
-                <p>عند وصول طلب جديد من شات التأهيل سيظهر هنا للمراجعة.</p>
-                <a className="btn primary" href="/qualification">فتح شات التأهيل</a>
-              </div>
-            ) : unconvertedLeads.map((lead) => (
-              <article className={`lead-card review-card ${selectedLead?.id === lead.id ? "selected" : ""}`} key={lead.id}>
-                <button type="button" className="lead-select-button" onClick={() => setSelectedLeadId(lead.id)}>
-                  <span className={`status-pill status-${lead.status}`}>{labels[lead.status]}</span>
-                  <strong>{lead.name || "طلب بدون اسم"}</strong>
-                  <small>{lead.phone} · {lead.city || "المدينة غير محددة"}</small>
-                </button>
-                <div className="lead-actions">
-                  <button type="button" onClick={() => setSelectedLeadId(lead.id)}>عرض التفاصيل</button>
-                </div>
-              </article>
-            ))}
+            {visibleLeads.map((lead) => <article className={`lead-card review-card glass-panel ${selected?.id === lead.id ? "selected" : ""}`} key={lead.id}>
+              <button className="lead-select-button" onClick={() => setSelectedId(lead.id)}>
+                <span className={`status-pill status-${lead.status}`}>{statusLabels[lead.status]}</span>
+                <strong>{lead.name}</strong>
+                <small>{lead.phone} · {lead.id}</small>
+                <small>{lead.converted ? `محوّل إلى ${lead.convertedRequestId}` : leadResolutionLabels[lead.resolution ?? "active"]}</small>
+              </button>
+            </article>)}
+            {!visibleLeads.length && <div className="empty-state glass-panel"><h3>لا توجد طلبات مطابقة</h3><p>غيّر الفلاتر أو حمّل البيانات من جديد.</p></div>}
           </div>
         </div>
 
-        <aside className="queue-panel lead-detail-panel" aria-live="polite">
-          {selectedLead ? (
-            <>
-              <div className="detail-head">
-                <span className={`status-pill status-${selectedLead.status}`}>{labels[selectedLead.status]}</span>
-                <h2>{selectedLead.name}</h2>
-                <p>{selectedLead.id}</p>
-              </div>
-
-              <div className="detail-grid">
-                <div><span>الهاتف</span><strong>{selectedLead.phone}</strong></div>
-                <div><span>المدينة</span><strong>{selectedLead.city || "غير محددة"}</strong></div>
-                <div><span>الجنسية</span><strong>{selectedLead.nationality || "غير محددة"}</strong></div>
-                <div><span>الأولوية</span><strong>{selectedLead.priority}</strong></div>
-              </div>
-
-              <div className="detail-section">
-                <strong>الإجراء التالي</strong>
-                <p>{selectedLead.nextAction}</p>
-              </div>
-
-              <div className="detail-section">
-                <strong>المستندات الناقصة</strong>
-                {selectedLead.missingDocuments.length > 0 ? (
-                  <ul>
-                    {selectedLead.missingDocuments.map((document) => <li key={document}>{documentLabel(document)}</li>)}
-                  </ul>
-                ) : <p>لا توجد مستندات ناقصة في الطلب.</p>}
-              </div>
-
-              <div className="detail-section">
-                <strong>رسالة العميل الآمنة</strong>
-                <p>{selectedLead.clientMessage}</p>
-              </div>
-
-              <div className="detail-actions">
-                <button className="btn primary" type="button" onClick={() => void convertSelectedLead()} disabled={convertingId === selectedLead.id}>
-                  {convertingId === selectedLead.id ? "جاري التحويل..." : "تحويل إلى حالة"}
-                </button>
-                <button className="btn secondary local-status" type="button" onClick={() => void updateStatus(selectedLead.id, "submitted")}>تم التسليم</button>
-              </div>
-            </>
-          ) : (
-            <div className="empty-state">
-              <h3>اختر طلباً للمراجعة.</h3>
-              <p>سيتم عرض كل تفاصيل الطلب هنا قبل التحويل إلى حالة تشغيلية.</p>
+        <aside className="lead-detail-panel glass-panel">
+          {selected ? <>
+            <div className="detail-head"><span className={`status-pill status-${selected.status}`}>{statusLabels[selected.status]}</span><h2>{selected.name}</h2><p>{selected.phone}</p></div>
+            <div className="detail-grid"><div><span>رقم الطلب</span><strong>{selected.id}</strong></div><div><span>المدينة</span><strong>{selected.city || "غير محدد"}</strong></div><div><span>الجنسية</span><strong>{selected.nationality || "غير محدد"}</strong></div><div><span>الأولوية</span><strong>{selected.priority}</strong></div></div>
+            <section className="detail-section"><strong>الرسالة الآمنة للعميل</strong><p>{selected.clientMessage}</p></section>
+            <section className="detail-section"><strong>المستندات الناقصة</strong>{selected.missingDocuments?.length ? <ul>{selected.missingDocuments.map((doc) => <li key={doc}>{doc}</li>)}</ul> : <p>لا توجد مستندات ناقصة.</p>}</section>
+            <section className="detail-section"><strong>الإجراء التالي</strong><p>{selected.nextAction}</p></section>
+            <section className="detail-section"><strong>إغلاق/تصنيف قبل التحويل</strong><textarea value={resolutionNotes} onChange={(event) => setResolutionNotes(event.target.value)} placeholder="ملاحظة داخلية اختيارية قبل الإغلاق" /></section>
+            <div className="detail-actions">
+              <button className="btn" disabled={loading || selected.converted || (selected.resolution ?? "active") !== "active"} onClick={convertSelected}>تحويل إلى حالة</button>
+              <button className="btn secondary local-status" disabled={loading} onClick={() => resolveSelected("lost")}>مفقود</button>
+              <button className="btn secondary local-status" disabled={loading} onClick={() => resolveSelected("duplicate")}>مكرر</button>
+              <button className="btn secondary local-status" disabled={loading} onClick={() => resolveSelected("not_interested")}>غير مهتم</button>
+              {(selected.resolution ?? "active") !== "active" && <button className="btn secondary local-status" disabled={loading} onClick={() => resolveSelected("active")}>إعادة تنشيط</button>}
             </div>
-          )}
+          </> : <div className="empty-state"><h3>اختر طلباً</h3><p>سيظهر ملخص التأهيل والإجراء المطلوب هنا.</p></div>}
         </aside>
       </section>
     </main>

@@ -183,6 +183,9 @@ export type StoredLead = QualificationAnswers & LeadClassification & {
   converted?: boolean;
   convertedRequestId?: string | null;
   convertedAt?: string | null;
+  resolution?: "active" | "lost" | "duplicate" | "not_interested";
+  resolutionNotes?: string | null;
+  resolvedAt?: string | null;
 };
 
 export function createStoredLead(answers: QualificationAnswers, now = new Date()): StoredLead {
