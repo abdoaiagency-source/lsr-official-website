@@ -2,9 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { caseStatusLabels, type ManagementFunnelStage, type ManagementPriority, type ManagementWorkload } from "@/lib/operations";
-import type { CaseRow, TaskRow } from "@/lib/supabase-rest";
-import type { OperationsLead } from "@/lib/operations";
+import { caseStatusLabels, type CaseStatus, type LeadStatus, type ManagementFunnelStage, type ManagementPriority, type ManagementWorkload } from "@/lib/operations";
 
 type Metrics = {
   newLeadsToday: number;
@@ -31,9 +29,9 @@ type ManagementResponse = {
   risks?: Risks;
   priorities?: ManagementPriority[];
   workload?: ManagementWorkload[];
-  leads?: OperationsLead[];
-  cases?: CaseRow[];
-  tasks?: TaskRow[];
+  readyDepositLeads?: Array<{ id: string; name: string; status: LeadStatus }>;
+  attentionCases?: Array<{ publicId: string; status: CaseStatus; clientName: string; owner: string }>;
+  overdueTasks?: Array<{ publicId: string; title: string; owner: string; dueAt: string | null }>;
   message?: string;
   error?: string;
 };
@@ -83,9 +81,9 @@ export default function ManagementDashboard() {
 
   const metrics = data?.metrics;
   const priorities = data?.priorities ?? [];
-  const readyDepositLeads = (data?.leads ?? []).filter((lead) => lead.status === "ready_deposit" && !lead.converted).slice(0, 6);
-  const attentionCases = (data?.cases ?? []).filter((item) => item.status !== "completed" && item.status !== "rejected").slice(0, 6);
-  const overdueTasks = (data?.tasks ?? []).filter((task) => task.status === "open" && task.due_at && new Date(task.due_at) < new Date()).slice(0, 6);
+  const readyDepositLeads = data?.readyDepositLeads ?? [];
+  const attentionCases = data?.attentionCases ?? [];
+  const overdueTasks = data?.overdueTasks ?? [];
 
   return (
     <main className="ops-page staff-page strategic-page">
@@ -168,15 +166,15 @@ export default function ManagementDashboard() {
           <section className="management-lists strategic-lists">
             <div className="queue-panel glass-panel">
               <h2>أقرب فرص الدفعة</h2>
-              {readyDepositLeads.length ? readyDepositLeads.map((lead) => <p key={lead.id}>{lead.name} · {lead.phone}</p>) : <EmptyLine text="لا توجد فرص جاهزة للدفعة الآن." />}
+              {readyDepositLeads.length ? readyDepositLeads.map((lead) => <p key={lead.id}>{lead.name} · جاهز للدفعة</p>) : <EmptyLine text="لا توجد فرص جاهزة للدفعة الآن." />}
             </div>
             <div className="queue-panel glass-panel">
               <h2>حالات تحتاج انتباه</h2>
-              {attentionCases.length ? attentionCases.map((item) => <p key={item.id}><Link href={`/cases/${item.public_id}`}>{item.public_id}</Link> · {caseStatusLabels[item.status]} · {item.client?.full_name ?? "عميل"}</p>) : <EmptyLine text="لا توجد حالات مفتوحة حالياً." />}
+              {attentionCases.length ? attentionCases.map((item) => <p key={item.publicId}><Link href={`/cases/${item.publicId}`}>{item.publicId}</Link> · {caseStatusLabels[item.status]} · {item.clientName}</p>) : <EmptyLine text="لا توجد حالات مفتوحة حالياً." />}
             </div>
             <div className="queue-panel glass-panel">
               <h2>مهام متأخرة</h2>
-              {overdueTasks.length ? overdueTasks.map((task) => <p key={task.id}>{task.title} · {task.assigned_to_name || "غير محدد"}</p>) : <EmptyLine text="لا توجد مهام متأخرة." />}
+              {overdueTasks.length ? overdueTasks.map((task) => <p key={task.publicId}>{task.title} · {task.owner}</p>) : <EmptyLine text="لا توجد مهام متأخرة." />}
             </div>
           </section>
 

@@ -1,4 +1,5 @@
 import type { LeadStatus, StoredLead } from "./conversion";
+export type { LeadStatus } from "./conversion";
 
 export const caseStatuses = ["rejected", "needs_documents", "ready_deposit", "submitted", "in_process", "completed"] as const;
 export type CaseStatus = (typeof caseStatuses)[number];
@@ -96,6 +97,7 @@ export const taskStatusLabels: Record<TaskStatus, string> = {
 export type TaskLike = {
   status: TaskStatus;
   dueAt?: string | null;
+  due_at?: string | null;
 };
 
 export type TaskBucket = "overdue" | "today" | "upcoming" | "completed" | "cancelled";
@@ -107,8 +109,9 @@ function startOfDay(date: Date) {
 export function taskBucket(task: TaskLike, now = new Date()): TaskBucket {
   if (task.status === "completed") return "completed";
   if (task.status === "cancelled") return "cancelled";
-  if (!task.dueAt) return "upcoming";
-  const due = new Date(task.dueAt);
+  const dueAt = task.dueAt ?? task.due_at;
+  if (!dueAt) return "upcoming";
+  const due = new Date(dueAt);
   const dueDay = startOfDay(due);
   const today = startOfDay(now);
   if (dueDay < today) return "overdue";
@@ -154,6 +157,10 @@ export function getManagementMetrics(input: { leads: LeadLike[]; cases: CaseLike
 export type ManagementFunnelStage = { key: string; label: string; count: number; description: string };
 export type ManagementPriority = { type: string; label: string; count: number; tone: "gold" | "red" | "amber" | "blue" };
 export type ManagementWorkload = { owner: string; openTasks: number; overdueTasks: number; activeCases: number };
+export type ManagementSummary = ReturnType<typeof getManagementStrategicSummary>;
+export type ManagementDashboardLead = { id: string; name: string; status: LeadStatus };
+export type ManagementDashboardCase = { publicId: string; status: CaseStatus; clientName: string; owner: string };
+export type ManagementDashboardTask = { publicId: string; title: string; owner: string; dueAt: string | null };
 
 function isActiveCase(item: CaseLike) {
   return item.status !== "completed" && item.status !== "rejected";
@@ -229,5 +236,48 @@ export function getManagementStrategicSummary(input: {
     risks,
     workload: Array.from(ownerMap.values()).sort((a, b) => a.owner.localeCompare(b.owner, "ar")),
     priorities: priorityCandidates.filter((item) => item.count > 0),
+  };
+}
+
+export function buildManagementDashboardDto(
+  summary: ManagementSummary,
+  source: {
+    leads: Array<LeadLike & { id?: string; name?: string }>;
+    cases: Array<CaseLike & { client?: { full_name?: string | null } | null }>;
+    tasks: Array<ManagementTaskLike & { public_id?: string; title?: string; due_at?: string | null }>;
+  },
+) {
+  return {
+    metrics: summary.metrics,
+    funnel: summary.funnel,
+    risks: summary.risks,
+    workload: summary.workload,
+    priorities: summary.priorities,
+    readyDepositLeads: source.leads
+      .filter((lead) => lead.status === "ready_deposit" && !lead.converted && (lead.resolution ?? "active") === "active")
+      .slice(0, 6)
+      .map((lead): ManagementDashboardLead => ({
+        id: lead.id ?? "",
+        name: lead.name ?? "عميل",
+        status: lead.status,
+      })),
+    attentionCases: source.cases
+      .filter((item) => isActiveCase(item))
+      .slice(0, 6)
+      .map((item): ManagementDashboardCase => ({
+        publicId: item.public_id ?? "",
+        status: item.status,
+        clientName: item.client?.full_name || "عميل",
+        owner: item.assigned_owner_name || "غير محدد",
+      })),
+    overdueTasks: source.tasks
+      .filter((task) => task.status === "open" && taskBucket(task) === "overdue")
+      .slice(0, 6)
+      .map((task): ManagementDashboardTask => ({
+        publicId: task.public_id ?? "",
+        title: task.title ?? "مهمة",
+        owner: task.assigned_to_name || "غير محدد",
+        dueAt: task.due_at ?? task.dueAt ?? null,
+      })),
   };
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildManagementDashboardDto,
   caseStatusLabels,
   documentStatusToDb,
   filterLeadsForOperations,
@@ -48,8 +49,8 @@ describe("operations helpers", () => {
         { status: "needs_documents" },
       ] as never,
       tasks: [
-        { status: "open", dueAt: "2026-05-16T08:00:00Z" },
-        { status: "completed", dueAt: "2026-05-16T08:00:00Z" },
+        { status: "open", due_at: "2026-05-16T08:00:00Z" },
+        { status: "completed", due_at: "2026-05-16T08:00:00Z" },
       ] as never,
       now: new Date("2026-05-17T10:00:00Z"),
     });
@@ -103,6 +104,64 @@ describe("operations helpers", () => {
       { owner: "منى", openTasks: 1, overdueTasks: 1, activeCases: 1 },
     ]);
     expect(summary.priorities.map((priority) => priority.type)).toEqual(["ready_deposit", "overdue_tasks", "stale_cases", "missing_documents", "unassigned_cases"]);
+  });
+
+  it("builds a management dashboard DTO without raw PII-heavy operational rows", () => {
+    const leads = [
+      { id: "LEAD-1", name: "أحمد", phone: "0910000000", city: "طرابلس", nationality: "ليبي", status: "ready_deposit", converted: false, resolution: "active", createdAt: "2026-05-17T08:00:00Z" },
+    ] as never;
+    const cases = [
+      {
+        id: "case-db-id",
+        public_id: "REQ-1",
+        status: "in_process",
+        last_activity_at: "2026-05-16T08:00:00Z",
+        missing_documents: [],
+        assigned_owner_name: "منى",
+        internal_notes: "لا يظهر للإدارة العامة",
+        qualification_snapshot: { sensitive: "raw answers" },
+        metadata: { private: true },
+        client: { full_name: "أحمد علي", phone: "0910000000", internal_notes: "ملاحظة داخلية" },
+      },
+    ] as never;
+    const tasks = [
+      {
+        id: "task-db-id",
+        public_id: "TASK-1",
+        title: "متابعة الدفعة",
+        status: "open",
+        dueAt: "2026-05-16T08:00:00Z",
+        due_at: "2026-05-16T08:00:00Z",
+        assigned_to_name: "منى",
+        description: "تفاصيل داخلية طويلة",
+        metadata: { private: true },
+        client: { full_name: "أحمد علي", phone: "0910000000" },
+      },
+    ] as never;
+
+    const summary = getManagementStrategicSummary({
+      leads,
+      cases,
+      tasks,
+      documents: [
+        { id: "doc-db-id", public_id: "DOC-1", status: "missing", required: true, internal_notes: "سري", document_type: "passport", client_id: "client-db-id" },
+      ] as never,
+      now: new Date("2026-05-17T10:00:00Z"),
+    });
+
+    const dto = buildManagementDashboardDto(summary, {
+      leads,
+      cases,
+      tasks,
+    });
+
+    expect(dto.readyDepositLeads).toEqual([{ id: "LEAD-1", name: "أحمد", status: "ready_deposit" }]);
+    expect(dto.attentionCases).toEqual([{ publicId: "REQ-1", status: "in_process", clientName: "أحمد علي", owner: "منى" }]);
+    expect(dto.overdueTasks).toEqual([{ publicId: "TASK-1", title: "متابعة الدفعة", owner: "منى", dueAt: "2026-05-16T08:00:00Z" }]);
+    expect(JSON.stringify(dto)).not.toContain("0910000000");
+    expect(JSON.stringify(dto)).not.toContain("internal_notes");
+    expect(JSON.stringify(dto)).not.toContain("qualification_snapshot");
+    expect(JSON.stringify(dto)).not.toContain("metadata");
   });
 
   it("keeps Arabic labels for production statuses", () => {

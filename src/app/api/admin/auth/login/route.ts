@@ -19,12 +19,13 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  if (!validateStaffPassword(body?.password)) {
+  const role = validateStaffPassword(body?.password);
+  if (!role) {
     recordFailedStaffLogin(request);
     return NextResponse.json({ ok: false, error: "invalid_credentials", message: "كلمة المرور غير صحيحة." }, { status: 401 });
   }
 
   recordSuccessfulStaffLogin(request);
-  await setStaffSessionCookie();
-  return NextResponse.json({ ok: true, message: "تم تسجيل الدخول." });
+  await setStaffSessionCookie(role);
+  return NextResponse.json({ ok: true, role, message: "تم تسجيل الدخول." });
 }

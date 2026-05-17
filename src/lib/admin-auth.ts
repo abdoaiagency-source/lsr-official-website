@@ -9,8 +9,10 @@ const LOGIN_MAX_FAILURES = 5;
 type LoginAttempt = { count: number; resetAt: number };
 const loginAttempts = new Map<string, LoginAttempt>();
 
+export type StaffRole = "staff" | "admin";
+
 type StaffSessionPayload = {
-  role: "staff" | "admin";
+  role: StaffRole;
   iat: number;
   exp: number;
   nonce: string;
@@ -51,18 +53,23 @@ function decodePayload(value: string): StaffSessionPayload | null {
   }
 }
 
-export function createStaffSessionToken(role: "staff" | "admin" = "staff") {
+export function createStaffSessionToken(role: StaffRole = "staff") {
   const now = Math.floor(Date.now() / 1000);
   const payload = encodePayload({ role, iat: now, exp: now + SESSION_TTL_SECONDS, nonce: randomBytes(16).toString("base64url") });
   return `${payload}.${sign(payload)}`;
 }
 
-export function verifyStaffSessionToken(token?: string | null) {
+export function verifyStaffSessionRole(token?: string | null): StaffRole | false {
   if (!configuredSessionSecret() || !token || !token.includes(".")) return false;
   const [payload, signature] = token.split(".", 2);
   if (!payload || !signature || !safeEqual(signature, sign(payload))) return false;
   const decoded = decodePayload(payload);
-  return Boolean(decoded && decoded.exp > Math.floor(Date.now() / 1000));
+  if (!decoded || decoded.exp <= Math.floor(Date.now() / 1000)) return false;
+  return decoded.role;
+}
+
+export function verifyStaffSessionToken(token?: string | null) {
+  return Boolean(verifyStaffSessionRole(token));
 }
 
 function cookieFromHeader(request: Request) {
@@ -122,11 +129,21 @@ export function recordSuccessfulStaffLogin(request: Request) {
   loginAttempts.delete(loginKey(request));
 }
 
-export function isAdminAuthorized(request: Request) {
-  if (verifyStaffSessionToken(cookieFromHeader(request))) return true;
+export function getAuthorizedStaffRole(request: Request): StaffRole | false {
+  const cookieRole = verifyStaffSessionRole(cookieFromHeader(request));
+  if (cookieRole) return cookieRole;
   const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword) return isLocalDevelopmentRequest(request);
-  return request.headers.get("authorization") === `Bearer ${adminPassword}`;
+  if (!adminPassword) return isLocalDevelopmentRequest(request) ? "admin" : false;
+  if (request.headers.get("authorization") === `Bearer ${adminPassword}`) return "admin";
+  return false;
+}
+
+export function isAdminAuthorized(request: Request) {
+  return Boolean(getAuthorizedStaffRole(request));
+}
+
+export function isManagementAuthorized(request: Request) {
+  return getAuthorizedStaffRole(request) === "admin";
 }
 
 export async function hasStaffSession() {
@@ -134,9 +151,14 @@ export async function hasStaffSession() {
   return verifyStaffSessionToken(store.get(COOKIE_NAME)?.value);
 }
 
-export async function setStaffSessionCookie() {
+export async function hasAdminSession() {
   const store = await cookies();
-  store.set(COOKIE_NAME, createStaffSessionToken("staff"), {
+  return verifyStaffSessionRole(store.get(COOKIE_NAME)?.value) === "admin";
+}
+
+export async function setStaffSessionCookie(role: StaffRole = "staff") {
+  const store = await cookies();
+  store.set(COOKIE_NAME, createStaffSessionToken(role), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -158,8 +180,11 @@ export async function clearStaffSessionCookie() {
 
 export function validateStaffPassword(password: unknown) {
   const adminPassword = process.env.ADMIN_PASSWORD;
-  if (typeof password !== "string" || !adminPassword) return false;
-  return safeEqual(password, adminPassword);
+  const staffPassword = process.env.STAFF_PASSWORD;
+  if (typeof password !== "string") return false;
+  if (adminPassword && safeEqual(password, adminPassword)) return "admin";
+  if (staffPassword && safeEqual(password, staffPassword)) return "staff";
+  return false;
 }
 
 export function adminError(error: string, message: string, status = 400) {

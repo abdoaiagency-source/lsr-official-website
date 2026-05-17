@@ -87,4 +87,30 @@ describe("admin auth hardening", () => {
     expect(limited.limited).toBe(true);
     expect(limited.retryAfter).toBeGreaterThan(0);
   });
+
+  it("distinguishes staff and admin sessions for management access", async () => {
+    process.env.STAFF_SESSION_SECRET = "session-secret";
+    process.env.STAFF_PASSWORD = "staff-password";
+    process.env.ADMIN_PASSWORD = "admin-password";
+
+    const { createStaffSessionToken, getAuthorizedStaffRole, isManagementAuthorized, validateStaffPassword } = await loadAdminAuth();
+
+    expect(validateStaffPassword("staff-password")).toBe("staff");
+    expect(validateStaffPassword("admin-password")).toBe("admin");
+
+    const staffToken = createStaffSessionToken("staff");
+    const adminToken = createStaffSessionToken("admin");
+
+    const staffRequest = new Request("https://lsr.example/api/admin/management", {
+      headers: { cookie: `lsr_staff_session=${staffToken}` },
+    });
+    const adminRequest = new Request("https://lsr.example/api/admin/management", {
+      headers: { cookie: `lsr_staff_session=${adminToken}` },
+    });
+
+    expect(getAuthorizedStaffRole(staffRequest)).toBe("staff");
+    expect(isManagementAuthorized(staffRequest)).toBe(false);
+    expect(getAuthorizedStaffRole(adminRequest)).toBe("admin");
+    expect(isManagementAuthorized(adminRequest)).toBe(true);
+  });
 });
