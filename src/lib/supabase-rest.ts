@@ -1,3 +1,4 @@
+import type { ConversionResult, ConvertLeadPayload } from "./case-conversion";
 import type { LeadRow } from "./leads";
 
 type SupabaseConfig = {
@@ -74,4 +75,11 @@ export async function updateLeadStatus(publicId: string, status: string): Promis
 
   if (!rows[0]) throw new Error("Supabase update returned no lead");
   return rows[0];
+}
+
+export async function convertLeadToCase(payload: ConvertLeadPayload): Promise<ConversionResult> {
+  return supabaseFetch<ConversionResult>("rpc/lsr_convert_lead_to_case", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }

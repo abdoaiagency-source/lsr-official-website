@@ -61,11 +61,16 @@ describe("lead persistence mapping", () => {
       missing_documents: [],
       client_message: "message",
       next_action: "action",
+      converted: true,
+      converted_request_id: "REQ-1",
+      converted_at: "2026-05-16T14:31:00Z",
     };
 
     const lead = leadRowToStoredLead(row);
     expect(lead.id).toBe("LEAD-1");
     expect(lead.hasEntryStamp).toBe("yes");
     expect(lead.nextAction).toBe("action");
+    expect(lead.converted).toBe(true);
+    expect(lead.convertedRequestId).toBe("REQ-1");
   });
 });

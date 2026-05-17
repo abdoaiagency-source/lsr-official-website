@@ -55,6 +55,9 @@ export type LeadRow = {
   missing_documents: StoredLead["missingDocuments"];
   client_message: string;
   next_action: string;
+  converted?: boolean | null;
+  converted_request_id?: string | null;
+  converted_at?: string | null;
 };
 
 export function leadRowToStoredLead(row: LeadRow): StoredLead {
@@ -82,6 +85,9 @@ export function leadRowToStoredLead(row: LeadRow): StoredLead {
     missingDocuments: row.missing_documents,
     clientMessage: row.client_message,
     nextAction: row.next_action,
+    converted: Boolean(row.converted),
+    convertedRequestId: row.converted_request_id ?? null,
+    convertedAt: row.converted_at ?? null,
   };
 }
 

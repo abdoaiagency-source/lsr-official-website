@@ -180,6 +180,9 @@ export type StoredLead = QualificationAnswers & LeadClassification & {
   id: string;
   createdAt: string;
   sourceChannel: "website_chat";
+  converted?: boolean;
+  convertedRequestId?: string | null;
+  convertedAt?: string | null;
 };
 
 export function createStoredLead(answers: QualificationAnswers, now = new Date()): StoredLead {
