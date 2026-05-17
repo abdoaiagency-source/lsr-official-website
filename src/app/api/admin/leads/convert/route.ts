@@ -1,17 +1,12 @@
 import { NextResponse } from "next/server";
+import { isAdminAuthorized } from "@/lib/admin-auth";
 import { buildConvertLeadPayload, conversionErrorMessage, DEFAULT_LSR_WORKER_ID, generateRequestPublicId } from "@/lib/case-conversion";
 import { convertLeadToCase, getSupabaseConfig } from "@/lib/supabase-rest";
 
 export const runtime = "nodejs";
 
-function isAuthorized(request: Request) {
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword) return true;
-  return request.headers.get("authorization") === `Bearer ${adminPassword}`;
-}
-
 export async function POST(request: Request) {
-  if (!isAuthorized(request)) {
+  if (!isAdminAuthorized(request)) {
     return NextResponse.json({ ok: false, error: "unauthorized", message: "غير مصرح بالدخول." }, { status: 401 });
   }
 

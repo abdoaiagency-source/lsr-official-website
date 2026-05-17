@@ -1,17 +1,12 @@
 import { NextResponse } from "next/server";
+import { isAdminAuthorized } from "@/lib/admin-auth";
 import { leadRowToStoredLead, leadStatusSchema } from "@/lib/leads";
 import { getSupabaseConfig, listLeads, updateLeadStatus } from "@/lib/supabase-rest";
 
 export const runtime = "nodejs";
 
-function isAuthorized(request: Request) {
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword) return true;
-  return request.headers.get("authorization") === `Bearer ${adminPassword}`;
-}
-
 export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
+  if (!isAdminAuthorized(request)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
@@ -29,7 +24,7 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  if (!isAuthorized(request)) {
+  if (!isAdminAuthorized(request)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
