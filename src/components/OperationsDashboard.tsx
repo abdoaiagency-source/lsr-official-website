@@ -130,9 +130,10 @@ export default function OperationsDashboard() {
         </nav>
       </section>
 
-      <section className="admin-auth-panel">
-        <label><span>كلمة مرور الإدارة</span><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="اتركها فارغة إذا كانت البيئة تسمح" /></label>
+      <section className="admin-auth-panel session-panel">
+        <strong>تم تسجيل الدخول كموظف LSR</strong>
         <button onClick={loadLeads} disabled={loading}>{loading ? "جاري العمل..." : "تحميل الطلبات"}</button>
+        <a className="btn secondary" href="/api/admin/auth/logout" onClick={(event) => { event.preventDefault(); fetch("/api/admin/auth/logout", { method: "POST" }).then(() => location.href = "/signin"); }}>خروج</a>
         <p className={`ops-notice ops-notice-${notice.type}`}>{notice.text}</p>
       </section>
 

@@ -65,7 +65,7 @@ export default function CaseDetailDashboard({ caseId }: { caseId: string }) {
   return (
     <main className="ops-page staff-page">
       <section className="ops-hero glass-panel"><div><p className="eyebrow">LSR OS · تفاصيل الحالة</p><h1>{item?.client?.full_name || caseId}</h1><p className="hero-copy">تحكم في الحالة، المستندات، الملاحظات، والإجراء القادم من شاشة واحدة.</p></div><nav className="ops-actions"><a className="btn secondary" href="/cases">كل الحالات</a><a className="btn secondary" href="/tasks">المهام</a><a className="btn secondary" href="/operations">الطلبات</a></nav></section>
-      <section className="admin-auth-panel"><label><span>كلمة مرور الإدارة</span><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label><button onClick={load} disabled={loading}>{loading ? "جاري العمل..." : "تحميل التفاصيل"}</button><p className={`ops-notice ops-notice-${notice.type}`}>{notice.text}</p></section>
+      <section className="admin-auth-panel session-panel"><strong>تم تسجيل الدخول كموظف LSR</strong><button onClick={load} disabled={loading}>{loading ? "جاري العمل..." : "تحميل التفاصيل"}</button><a className="btn secondary" href="/api/admin/auth/logout" onClick={(event) => { event.preventDefault(); fetch("/api/admin/auth/logout", { method: "POST" }).then(() => location.href = "/signin"); }}>خروج</a><p className={`ops-notice ops-notice-${notice.type}`}>{notice.text}</p></section>
       {item ? (
         <section className="case-detail-grid">
           <div className="queue-panel glass-panel">

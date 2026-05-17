@@ -45,7 +45,7 @@ export default function ManagementDashboard() {
   return (
     <main className="ops-page staff-page">
       <section className="ops-hero glass-panel"><div><p className="eyebrow">LSR OS · الإدارة</p><h1>رؤية تنفيذية للمبيعات والتشغيل</h1><p className="hero-copy">مؤشرات بسيطة بلا ذكاء اصطناعي: أين الطلبات، أين الحالات، وما المتأخر اليوم.</p></div><nav className="ops-actions"><a className="btn secondary" href="/operations">الطلبات</a><a className="btn secondary" href="/cases">الحالات</a><a className="btn secondary" href="/tasks">المهام</a></nav></section>
-      <section className="admin-auth-panel"><label><span>كلمة مرور الإدارة</span><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label><button onClick={load} disabled={loading}>{loading ? "جاري العمل..." : "تحميل المؤشرات"}</button><p className={`ops-notice ops-notice-${notice.type}`}>{notice.text}</p></section>
+      <section className="admin-auth-panel session-panel"><strong>تم تسجيل الدخول كموظف LSR</strong><button onClick={load} disabled={loading}>{loading ? "جاري العمل..." : "تحميل المؤشرات"}</button><a className="btn secondary" href="/api/admin/auth/logout" onClick={(event) => { event.preventDefault(); fetch("/api/admin/auth/logout", { method: "POST" }).then(() => location.href = "/signin"); }}>خروج</a><p className={`ops-notice ops-notice-${notice.type}`}>{notice.text}</p></section>
       {metrics ? (
         <>
           <section className="metrics-grid management-grid">{Object.entries(metricLabels).map(([key, label]) => <div className="metric-card glass-panel" key={key}><span>{label}</span><strong>{metrics[key as keyof Metrics]}</strong><small>مباشر من Supabase</small></div>)}</section>
