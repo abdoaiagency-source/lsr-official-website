@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { safeInternalPath } from "@/lib/safe-path";
 
 type LoginResponse = { ok: boolean; message?: string; error?: string };
 
@@ -23,8 +24,8 @@ export default function StaffSignIn({ nextPath = "/operations" }: { nextPath?: s
       });
       const data = (await response.json()) as LoginResponse;
       if (!response.ok || !data.ok) throw new Error(data.message || data.error || "login_failed");
-      const next = nextPath;
-      router.replace(next.startsWith("/") ? next : "/operations");
+      const next = safeInternalPath(nextPath);
+      router.replace(next);
       router.refresh();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "تعذر تسجيل الدخول.");

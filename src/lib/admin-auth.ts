@@ -3,6 +3,11 @@ import { cookies } from "next/headers";
 
 const COOKIE_NAME = "lsr_staff_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 10;
+const LOGIN_WINDOW_MS = 10 * 60 * 1000;
+const LOGIN_MAX_FAILURES = 5;
+
+type LoginAttempt = { count: number; resetAt: number };
+const loginAttempts = new Map<string, LoginAttempt>();
 
 type StaffSessionPayload = {
   role: "staff" | "admin";
@@ -11,8 +16,14 @@ type StaffSessionPayload = {
   nonce: string;
 };
 
+function configuredSessionSecret() {
+  return process.env.STAFF_SESSION_SECRET || process.env.ADMIN_PASSWORD || null;
+}
+
 function sessionSecret() {
-  return process.env.STAFF_SESSION_SECRET || process.env.ADMIN_PASSWORD || "development-only-lsr-session-secret";
+  const secret = configuredSessionSecret();
+  if (!secret) throw new Error("Staff session secret is not configured");
+  return secret;
 }
 
 function sign(value: string) {
@@ -47,7 +58,7 @@ export function createStaffSessionToken(role: "staff" | "admin" = "staff") {
 }
 
 export function verifyStaffSessionToken(token?: string | null) {
-  if (!token || !token.includes(".")) return false;
+  if (!configuredSessionSecret() || !token || !token.includes(".")) return false;
   const [payload, signature] = token.split(".", 2);
   if (!payload || !signature || !safeEqual(signature, sign(payload))) return false;
   const decoded = decodePayload(payload);
@@ -59,10 +70,62 @@ function cookieFromHeader(request: Request) {
   return cookieHeader.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${COOKIE_NAME}=`))?.slice(COOKIE_NAME.length + 1);
 }
 
+function isLocalDevelopmentRequest(request: Request) {
+  if (process.env.NODE_ENV === "production" || process.env.ALLOW_LOCAL_ADMIN_BYPASS !== "true") return false;
+  try {
+    const { hostname } = new URL(request.url);
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
+function loginKey(request: Request) {
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwarded || request.headers.get("x-real-ip") || "unknown";
+}
+
+export function resetStaffLoginRateLimit() {
+  loginAttempts.clear();
+}
+
+function pruneLoginAttempts(now = Date.now()) {
+  loginAttempts.forEach((attempt, key) => {
+    if (attempt.resetAt <= now) loginAttempts.delete(key);
+  });
+  if (loginAttempts.size > 5_000) {
+    const oldestKey = loginAttempts.keys().next().value as string | undefined;
+    if (oldestKey) loginAttempts.delete(oldestKey);
+  }
+}
+
+export function checkStaffLoginRateLimit(request: Request, now = Date.now()) {
+  pruneLoginAttempts(now);
+  const key = loginKey(request);
+  const attempt = loginAttempts.get(key);
+  if (!attempt || attempt.resetAt <= now) return { limited: false, retryAfter: 0 };
+  if (attempt.count < LOGIN_MAX_FAILURES) return { limited: false, retryAfter: 0 };
+  return { limited: true, retryAfter: Math.ceil((attempt.resetAt - now) / 1000) };
+}
+
+export function recordFailedStaffLogin(request: Request, now = Date.now()) {
+  const key = loginKey(request);
+  const current = loginAttempts.get(key);
+  if (!current || current.resetAt <= now) {
+    loginAttempts.set(key, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+    return;
+  }
+  loginAttempts.set(key, { ...current, count: current.count + 1 });
+}
+
+export function recordSuccessfulStaffLogin(request: Request) {
+  loginAttempts.delete(loginKey(request));
+}
+
 export function isAdminAuthorized(request: Request) {
   if (verifyStaffSessionToken(cookieFromHeader(request))) return true;
   const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword) return process.env.NODE_ENV !== "production";
+  if (!adminPassword) return isLocalDevelopmentRequest(request);
   return request.headers.get("authorization") === `Bearer ${adminPassword}`;
 }
 
